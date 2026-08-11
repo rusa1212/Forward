@@ -110,7 +110,6 @@
             ▼
      [이메일 알림 발송]
 ```
-!rnd_alert_architecture_with_auth.svg
 ---
 
 ## 7. 기술 스택
