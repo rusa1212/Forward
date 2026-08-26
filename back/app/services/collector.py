@@ -27,6 +27,12 @@ def _parse_date(value: str | None, fmt: str) -> date | None:
         return None
 
 
+def today_bid_date_range() -> tuple[str, str]:
+    """나라장터 조회 파라미터(YYYYMMDDHHMM) 기본값: 오늘 00:00 ~ 23:59."""
+    today = datetime.now().strftime("%Y%m%d")
+    return f"{today}0000", f"{today}2359"
+
+
 async def fetch_kstartup(client: httpx.AsyncClient, page: int = 1, per_page: int = 100) -> list[dict]:
     """창업진흥원 K-Startup 사업공고. 응답이 <col name="...">value</col> 형태의 XML."""
     res = await client.get(

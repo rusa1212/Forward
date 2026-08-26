@@ -4,3 +4,4 @@ pydantic-settings
 httpx
 sqlalchemy
 psycopg2-binary
+apscheduler

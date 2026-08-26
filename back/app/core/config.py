@@ -17,5 +17,9 @@ class Settings(BaseSettings):
     # Supabase 접속정보 (postgresql+psycopg2://... 형식)
     DATABASE_URL: str = ""
 
+    # 매일 자동 수집 실행 시각 (서버 로컬 시간 기준)
+    COLLECT_CRON_HOUR: int = 6
+    COLLECT_CRON_MINUTE: int = 0
+
 
 settings = Settings()

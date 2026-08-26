@@ -1,19 +1,17 @@
 """공고 수집 트리거. GET은 미리보기(저장 안 함), POST는 실제로 DB에 저장."""
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.services.collector import collect_all
+from app.services.collector import collect_all, today_bid_date_range
 from app.services.storage import save_announcements
 
 router = APIRouter(tags=["collect"])
 
 
 def _bid_date_range(bid_from: str | None, bid_to: str | None) -> tuple[str, str]:
-    today = datetime.now().strftime("%Y%m%d")
-    return bid_from or f"{today}0000", bid_to or f"{today}2359"
+    default_from, default_to = today_bid_date_range()
+    return bid_from or default_from, bid_to or default_to
 
 
 @router.get("/collect")
