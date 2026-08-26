@@ -2,7 +2,6 @@
 # 의존성 (Dependencies)
 # ---------------------------------------------------------------------------
 node_modules/
-.pnpm-store/
 .yarn/
 jspm_packages/
 
@@ -46,7 +45,6 @@ logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
 *-debug.log*
 
 # ---------------------------------------------------------------------------
@@ -88,12 +86,9 @@ $RECYCLE.BIN/
 /.plugins/
 /.opencode-skills/
 
-# .figma/ 는 커밋합니다 - vite.config.ts 가 .figma/make/site.json 을
-# import 하므로, 없으면 팀원이 clone 후 빌드할 수 없습니다.
-
 # ---------------------------------------------------------------------------
 # 락 파일 (Lock files)
-# 이 프로젝트는 pnpm 을 사용하므로(.mise.toml) pnpm-lock.yaml 만 커밋합니다.
+# 이 프로젝트는 npm 을 사용하므로 package-lock.json 만 커밋합니다.
 # ---------------------------------------------------------------------------
-package-lock.json
+pnpm-lock.yaml
 yarn.lock
