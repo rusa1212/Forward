@@ -1,9 +1,6 @@
 fastapi
 uvicorn[standard]
 pydantic-settings
+httpx
 sqlalchemy
 psycopg2-binary
-alembic
-python-jose[cryptography]
-passlib[bcrypt]
-httpx

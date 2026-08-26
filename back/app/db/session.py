@@ -1,9 +1,4 @@
-"""
-DB 세션 (WBS 1.1 / 1.2~1.4 연동)
-
-DB 팀원이 만든 스키마(models.py)에 연결하는 부분.
-DATABASE_URL은 .env에서 옵니다 (app/core/config.py).
-"""
+"""DB 세션. DATABASE_URL은 .env에서 옵니다 (app/core/config.py)."""
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
