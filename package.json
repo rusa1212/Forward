@@ -3,10 +3,13 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "workspaces": [
+    "front"
+  ],
   "scripts": {
-    "dev": "pnpm --filter forward-frontend dev",
-    "build": "pnpm --filter forward-frontend build",
-    "preview": "pnpm --filter forward-frontend preview",
-    "format": "pnpm --filter forward-frontend format"
+    "dev": "npm run dev --workspace=front",
+    "build": "npm run build --workspace=front",
+    "preview": "npm run preview --workspace=front",
+    "format": "npm run format --workspace=front"
   }
 }

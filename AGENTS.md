@@ -1,25 +1,25 @@
-# figma-make-app
+# forward
 
-React + Vite + Tailwind CSS project running inside Figma Make.
+React + Vite + Tailwind CSS project, structured as an npm workspace.
 
 ## Development Server
 
-A Vite development server is **already running** on `$PORT` (default 8443). You don't need to start it manually.
+Run `npm run dev` from the repo root (delegates to `front`) to start the Vite dev server on `$PORT` (default 8443).
 
-- Preview URL: The user can access the running app through the preview panel
 - Hot reload: Changes to source files are reflected immediately
 
 ## Project Structure
 
-This is the canonical project structure. Start with task-relevant files below. Only follow imports or inspect other files when required, when a documented path is missing, or when the repository contradicts this guide.
+This repo is an npm workspace with a single package, `front`. This is the canonical project structure. Start with task-relevant files below. Only follow imports or inspect other files when required, when a documented path is missing, or when the repository contradicts this guide.
 
-- `src/main.tsx` - React entrypoint; imports `src/index.css` and mounts `src/App.tsx` into the `#root` element
-- `src/App.tsx` - Primary application component and the usual starting point for UI work
-- `src/index.css` - Global CSS entrypoint and Tailwind CSS v4 import
-- `index.html` - Vite HTML shell containing the `#root` element and loading `src/main.tsx`
-- `package.json` - Project dependencies and the Vite build, development, preview, and formatting scripts
-- `vite.config.ts` - Vite configuration with React, Tailwind CSS v4, and Figma Make plugins plus the `@` alias for `src`
-- `.mise.toml` - Toolchain versions for Node.js and pnpm
+- `front/src/main.tsx` - React entrypoint; imports `front/src/index.css` and mounts `front/src/App.tsx` into the `#root` element
+- `front/src/App.tsx` - Primary application component and the usual starting point for UI work
+- `front/src/index.css` - Global CSS entrypoint and Tailwind CSS v4 import
+- `front/index.html` - Vite HTML shell containing the `#root` element and loading `front/src/main.tsx`
+- `front/package.json` - Frontend package (`forward-frontend`) with dependencies and the Vite build, development, preview, and formatting scripts
+- `front/vite.config.ts` - Vite configuration with React, Tailwind CSS v4, and the `@` alias for `front/src`
+- `package.json` - Workspace root; declares the `front` workspace and delegates `dev`/`build`/`preview`/`format` to it via `npm run <script> --workspace=front`
+- `.mise.toml` - Toolchain version for Node.js
 
 ## Dependencies
 
@@ -30,9 +30,9 @@ This is the canonical project structure. Start with task-relevant files below. O
 
 ## Styling
 
-This project uses **Tailwind CSS v4** through the `@tailwindcss/vite` plugin configured in `vite.config.ts`. `src/index.css` imports Tailwind with `@import 'tailwindcss';`. Use Tailwind utility classes directly in JSX and put global CSS or Tailwind v4 theme customization in `src/index.css`. This scaffold does not need a Tailwind config file or PostCSS config.
+This project uses **Tailwind CSS v4** through the `@tailwindcss/vite` plugin configured in `front/vite.config.ts`. `front/src/index.css` imports Tailwind with `@import 'tailwindcss';`. Use Tailwind utility classes directly in JSX and put global CSS or Tailwind v4 theme customization in `front/src/index.css`. This scaffold does not need a Tailwind config file or PostCSS config.
 
-`src/main.tsx` imports `src/index.css`, so global font wiring belongs in `src/index.css`. Keep CSS `@import` statements first, then add any `@font-face` rules and font-family defaults there.
+`front/src/main.tsx` imports `front/src/index.css`, so global font wiring belongs in `front/src/index.css`. Keep CSS `@import` statements first, then add any `@font-face` rules and font-family defaults there.
 
 ## Code quality
 
