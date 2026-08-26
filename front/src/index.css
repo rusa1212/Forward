@@ -1,0 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+:root {
+  --navy: #1d3557;
+  --steel: #457b9d;
+  --light-steel: #a8dadc;
+  --bg: #f0f2f5;
+  --card: #ffffff;
+  --border: #e8eaed;
+}
+
+* { font-family: 'Noto Sans KR', 'Inter', sans-serif; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; opacity: 0; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }

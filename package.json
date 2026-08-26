@@ -1,0 +1,12 @@
+{
+  "name": "forward",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter forward-frontend dev",
+    "build": "pnpm --filter forward-frontend build",
+    "preview": "pnpm --filter forward-frontend preview",
+    "format": "pnpm --filter forward-frontend format"
+  }
+}
