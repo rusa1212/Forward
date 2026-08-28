@@ -3,6 +3,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import Date, DateTime, Text, UniqueConstraint, text
+from sqlalchemy import CheckConstraint, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -57,5 +58,23 @@ class Announcement(Base):
     detail_url: Mapped[str | None] = mapped_column(Text)
     summary: Mapped[str | None] = mapped_column(Text)
     collected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+
+class Keyword(Base):
+    """사용자가 등록한 알림 키워드 (5주차 1차 작업 순서 10)."""
+    __tablename__ = "keywords"
+    __table_args__ = (
+        UniqueConstraint("user_id", "keyword", name="keywords_user_id_keyword_key"),
+        CheckConstraint("char_length(keyword) BETWEEN 1 AND 50", name="keywords_keyword_length_check"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    keyword: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
