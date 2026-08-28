@@ -20,8 +20,13 @@ app/
     health.py              헬스체크 (/health, /health/db)
     collect.py              수집 트리거 (GET: 미리보기, POST: 저장)
     announcements.py        저장된 공고 재조회
+    auth.py                 사원 인증 + 회원가입/로그인/로그아웃 (JWT)
+  core/
+    errors.py             공통 오류 응답 형식 ({"success": false, "error": {...}})
 requirements.txt
 .env.example
+supabase/
+  employees_users.sql     Supabase SQL Editor에서 실행할 employees/users 테이블 생성 스크립트
 ```
 
 ## 실행 방법
@@ -31,9 +36,13 @@ python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt   # Windows
 # source .venv/bin/activate && pip install -r requirements.txt   # macOS/Linux
 
-copy .env.example .env   # DATA_GO_KR_API_KEY, DATABASE_URL 채우기
+copy .env.example .env   # DATA_GO_KR_API_KEY, DATABASE_URL, JWT_SECRET 채우기
 .venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
 ```
+
+`.env`에는 `DATABASE_URL`만 채우면 됩니다 (Supabase 프로젝트 > Database > Connection string에서 복사, `postgresql://`를 `postgresql+psycopg2://`로 바꿔서 사용). Supabase의 anon key / service_role key는 이 백엔드에서 쓰지 않습니다 — 서버가 `DATABASE_URL`로 Postgres에 직접 붙어서 처리하기 때문입니다.
+
+Supabase 쪽에는 `supabase/employees_users.sql` 내용을 SQL Editor에 붙여넣고 한 번 실행해서 `employees`/`users` 테이블을 만들어야 회원가입/로그인이 동작합니다.
 
 ## 확인된 엔드포인트
 
@@ -42,6 +51,10 @@ copy .env.example .env   # DATA_GO_KR_API_KEY, DATABASE_URL 채우기
 - `GET /api/v1/collect` → 3개 소스(K-Startup, 나라장터, 과기정통부) 수집 미리보기 (DB 저장 안 함)
 - `POST /api/v1/collect` → 수집 후 `announcements` 테이블에 upsert (`source`+`external_id` 기준 중복 방지)
 - `GET /api/v1/announcements?limit=20&source=kstartup` → 저장된 공고 재조회
+- `POST /api/v1/auth/verify-employee` → `{empId, name}`이 사원 명부와 일치하는지 확인 (회원가입 1단계)
+- `POST /api/v1/auth/signup` → `{empId, name, email, pw}`로 계정 생성 (회원가입 2단계, 사원 인증 재검증)
+- `POST /api/v1/auth/login` → `{empId, pw}` 검증 후 로그인 토큰(JWT) 발급
+- `POST /api/v1/auth/logout` → 상태 없는(stateless) JWT라 서버가 지울 게 없음 (FE가 토큰만 버리면 됨)
 
 ## 수집 대상 (공공데이터포털)
 
@@ -54,5 +67,6 @@ copy .env.example .env   # DATA_GO_KR_API_KEY, DATABASE_URL 채우기
 
 ## 다음에 할 일
 
-- APScheduler로 `POST /api/v1/collect`를 하루 1회 자동 실행
-- 5주차 항목: 인증(JWT), 조회/검색, 개인화, 대시보드, 알림
+- APScheduler로 `POST /api/v1/collect`를 하루 1회 자동 실행 (완료 — `core/scheduler.py`)
+- 인증(JWT) — 완료 (`api/v1/auth.py`)
+- 5주차 2차 작업: 공고 검색/필터/정렬/페이지네이션 확장, 키워드 CRUD, 저장공고 CRUD, 알림

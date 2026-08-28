@@ -11,6 +11,33 @@ class Base(DeclarativeBase):
     pass
 
 
+class Employee(Base):
+    """사원 명부 (회원가입 시 사번+이름 인증용)."""
+    __tablename__ = "employees"
+
+    emp_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    department: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+
+class User(Base):
+    """가입 계정. emp_id는 사번 1개당 계정 1개만 허용."""
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    emp_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    email: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+
 class Announcement(Base):
     __tablename__ = "announcements"
     __table_args__ = (
