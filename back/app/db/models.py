@@ -3,7 +3,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import Date, DateTime, Text, UniqueConstraint, text
-from sqlalchemy import CheckConstraint, ForeignKey
+from sqlalchemy import ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -62,19 +62,20 @@ class Announcement(Base):
     )
 
 
-class Keyword(Base):
-    """사용자가 등록한 알림 키워드 (5주차 1차 작업 순서 10)."""
-    __tablename__ = "keywords"
+class SavedAnnouncement(Base):
+    """사용자가 저장(즐겨찾기)한 공고 (5주차 1차 작업 순서 12)."""
+    __tablename__ = "saved_announcements"
     __table_args__ = (
-        UniqueConstraint("user_id", "keyword", name="keywords_user_id_keyword_key"),
-        CheckConstraint("char_length(keyword) BETWEEN 1 AND 50", name="keywords_keyword_length_check"),
+        UniqueConstraint("user_id", "announcement_id", name="saved_announcements_user_id_announcement_id_key"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    keyword: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
+    announcement_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("announcements.id"), nullable=False
+    )
+    saved_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
