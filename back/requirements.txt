@@ -1,7 +1,10 @@
 fastapi
 uvicorn[standard]
 pydantic-settings
+email-validator
 httpx
 sqlalchemy
 psycopg2-binary
 apscheduler
+bcrypt
+PyJWT

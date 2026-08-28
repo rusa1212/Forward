@@ -21,5 +21,9 @@ class Settings(BaseSettings):
     COLLECT_CRON_HOUR: int = 6
     COLLECT_CRON_MINUTE: int = 0
 
+    # 로그인 토큰(JWT) 서명용. 실서비스 배포 전 반드시 각자 .env에서 무작위 값으로 교체할 것.
+    JWT_SECRET: str = "change-me-in-env"
+    JWT_EXPIRE_HOURS: int = 24
+
 
 settings = Settings()
