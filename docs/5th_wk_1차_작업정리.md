@@ -47,19 +47,32 @@
 - 로컬 개발 시 프론트(`npm run dev`, `:8443`)와 백엔드(`uvicorn`, `:8000`)가 각각 별도 프로세스로 둘 다 떠 있어야 함 — 이미 켜둔 상태면 코드 변경 시 재시작 불필요(`.env` 변경 시에만 백엔드 재시작 필요)
 - 테스트용 사원 데이터 추가: `20230001`/`김민준`(기존 시드), `20230002`/`홍길동`(추가)
 
-## 6. 현재 상태 (스모크 테스트 결과)
+## 6. 블로커 해결 — keywords/saved_announcements 테이블 생성
 
-**정상 동작**
+`user_keywords`/`alert_settings`/`notification_logs`의 FK/제약조건을 다시 확인해보니:
+
+- `user_keywords.keyword_id`가 어떤 테이블도 참조하지 않는 FK 없는 UUID 컬럼이고, 키워드 텍스트를 담을 컬럼 자체가 없음(마스터 keywords 테이블이 없음)
+- `user_keywords`/`alert_settings`/`notification_logs` 모두 `users`로의 FK가 없음
+- `notification_logs`는 `user_id`/`announcement_id`/`keyword_id`가 각각 단독 UNIQUE라서 사용자당 로그를 1건만 남길 수 있는 상태(설계 버그로 보임)
+- `docs/be/5th_wk/5th_wk_priority.md`의 DB 트랙에 "사용자 키워드·저장공고·알림 이력 UNIQUE/FK 제약조건 적용"이 아직 안 끝난 P0 항목으로 명시돼 있음
+
+→ **결론: `user_keywords` 등은 DB 담당자가 작업 중인 미완성 스캐폴딩**이라 지금 BE 코드를 거기 맞추지 않고, 이미 검증된 `back/supabase/keywords.sql`/`saved_announcements.sql`을 실제 Supabase에 그대로 실행해서 `keywords`/`saved_announcements` 테이블 생성. `user_keywords`/`alert_settings`/`notification_logs`는 손대지 않고 그대로 둠(DB 담당자 트랙에서 추후 정리).
+
+## 7. 현재 상태 (최종 스모크 테스트 결과)
+
+**전부 정상 동작**
 - `POST /auth/verify-employee`, `POST /auth/signup`, `POST /auth/login`
 - `GET /announcements`(검색/필터/정렬/페이지네이션), `GET /announcements/{id}`
+- `GET/POST/DELETE /keywords` (조회/등록/중복차단/삭제)
+- `GET/POST/DELETE /saved-announcements` (조회/저장/중복차단/취소)
 - 인증 없이 보호 API 호출 시 401 정상 처리
 
-**아직 막힘 (실제 DB 스키마 불일치, 4절 참고)**
-- `GET/POST/DELETE /keywords` — 실제 DB에 `keywords` 테이블 없음(`relation "keywords" does not exist`)
-- `GET/POST/DELETE /saved-announcements` — 실제 DB에 `saved_announcements` 테이블 없음
+**사용자별 데이터 격리 확인** — `keywords`/`saved_announcements` 둘 다 `user_id`가 `users.id`를 참조하는 FK이고, 각각 `UNIQUE(user_id, keyword)` / `UNIQUE(user_id, announcement_id)` 제약이 걸려있음. API 코드(`keywords.py`, `saved_announcements.py`)도 모든 조회·등록·삭제 쿼리에 `WHERE user_id == current_user.id`(JWT에서 추출)를 걸고, 다른 사용자의 리소스 id로 삭제를 시도하면 소유권 노출 없이 404로 응답함. DB 제약 + API 로직 이중으로 로그인한 사용자 것만 보이도록 격리돼 있음을 확인.
 
-## 7. 다음에 처리할 것
+## 8. 남은 작업
 
-- `keywords`/`saved_announcements` vs `user_keywords`/`alert_settings`/`notification_logs` 스키마 불일치를 DB 담당자와 협의해서 BE 코드를 실제 스키마에 맞출지, DB에 BE가 가정하는 테이블을 새로 만들지 결정
-- 결정되는 대로 해당 BE 라우터(`keywords.py`, `saved_announcements.py`)와 `models.py` 수정
-- 이후 FE의 키워드/저장공고 화면(`useKeywords`, `useFavorites`)은 이미 연동 코드가 준비돼 있어 BE만 맞으면 바로 동작 확인 가능
+- `feature/be-keywords` → `main` PR 생성/머지 확인 (GitHub에서 직접 확인 필요)
+- `develop` 브랜치가 `back/`/`front/` 없이 거의 비어있는 이유 확인 (팀에 문의 필요)
+- `back/.env`의 `JWT_SECRET`이 기본값(`change-me-in-env`)으로 남아있음 — 실배포 전 랜덤 값으로 교체
+- `user_keywords`/`alert_settings`/`notification_logs`는 DB 담당자와 협의해서 완성(FK/UNIQUE 정리, 마스터 키워드 테이블 등) 후 필요하면 알림 매칭/이력 기능에 활용
+- 대시보드 집계 API, 키워드 알림 on/off 연동, 마이페이지/알림/자동화 연계 등은 5-1plan.md 기준 이후 범위 — 아직 미착수
