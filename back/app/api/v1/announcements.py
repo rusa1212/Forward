@@ -3,16 +3,20 @@
 - GET /announcements       : 검색어·상태·기관·출처 필터 + 정렬 + 페이지네이션
 - GET /announcements/{id}  : 공고 상세 (없으면 404)
 
-주의: `status`는 아직 원본 데이터(source마다 다른 문자열, 예: "Y"/"N", "일반공고" 등)를
-그대로 저장하고 있어서(app/services/collector.py 참고), FE의 접수중/마감 같은 정규화된
-값과는 다를 수 있습니다. 상태값을 통일하는 작업은 이번 범위에 포함하지 않았고,
-지금은 저장된 값 그대로 필터링만 됩니다 (FE 연동 시 다시 논의 필요).
+상태값 정규화:
+수집 출처(app/services/collector.py)마다 원본 상태값이 다릅니다
+(K-Startup은 "Y"/"N", 나라장터는 공고 종류명, 과기정통부는 없음(null)).
+그래서 원본 `status` 컬럼과는 별도로, 접수시작일/접수종료일을 기준으로
+FE의 StatusType(접수중/접수예정/마감임박/마감)에 맞춘 `statusLabel`을 계산해서 내려줍니다.
+- 마감임박 기준은 "마감일까지 3일 이내"로 잡았습니다(팀 협의된 값이 아니라 임시 기준이니,
+  FE 연동 시 실제 기준을 다시 확인해주세요).
+- 접수시작일/종료일 정보가 아예 없는 공고(예: msit)는 판단할 수 없어 statusLabel이 null입니다.
 """
 import uuid
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import case, func, literal, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
@@ -27,6 +31,35 @@ SORT_OPTIONS = {
     "deadline": (Announcement.reception_end.asc().nulls_last(), Announcement.id.asc()),
     "title": (Announcement.title.asc(), Announcement.id.asc()),
 }
+
+DEADLINE_SOON_DAYS = 3
+STATUS_LABELS = ("접수중", "접수예정", "마감임박", "마감")
+
+
+def _status_label_expr():
+    """statusLabel을 SQL에서 계산 (WHERE 필터가 페이지네이션과 같이 정확히 동작하도록)."""
+    today = func.current_date()
+    return case(
+        (Announcement.reception_start.is_(None) & Announcement.reception_end.is_(None), literal(None)),
+        (Announcement.reception_end < today, "마감"),
+        (Announcement.reception_start > today, "접수예정"),
+        (Announcement.reception_end <= today + timedelta(days=DEADLINE_SOON_DAYS), "마감임박"),
+        else_="접수중",
+    )
+
+
+def _status_label(reception_start: date | None, reception_end: date | None) -> str | None:
+    """statusLabel을 파이썬에서 계산 (_status_label_expr()과 동일한 규칙, 응답 직렬화용)."""
+    if reception_start is None and reception_end is None:
+        return None
+    today = date.today()
+    if reception_end is not None and reception_end < today:
+        return "마감"
+    if reception_start is not None and reception_start > today:
+        return "접수예정"
+    if reception_end is not None and reception_end <= today + timedelta(days=DEADLINE_SOON_DAYS):
+        return "마감임박"
+    return "접수중"
 
 
 def _dday(reception_end: date | None) -> int | None:
@@ -46,6 +79,7 @@ def _serialize(row: Announcement) -> dict:
         "reception_start": row.reception_start,
         "reception_end": row.reception_end,
         "status": row.status,
+        "statusLabel": _status_label(row.reception_start, row.reception_end),
         "detail_url": row.detail_url,
         "summary": row.summary,
         "collected_at": row.collected_at,
@@ -56,7 +90,10 @@ def _serialize(row: Announcement) -> dict:
 @router.get("/announcements")
 def list_announcements(
     q: str | None = Query(None, description="제목 검색어 (부분 일치)"),
-    status: str | None = Query(None, description="공고 상태 필터 (저장된 값과 정확히 일치해야 함)"),
+    status: str | None = Query(None, description="공고 상태 필터 (저장된 원본 값과 정확히 일치해야 함)"),
+    statusLabel: str | None = Query(
+        None, description=f"정규화된 상태 필터: {', '.join(STATUS_LABELS)} 중 하나"
+    ),
     department: str | None = Query(None, description="기관/부서 필터"),
     source: str | None = Query(None, description="수집 출처 필터 (kstartup, narajangteo, msit)"),
     sort: str = Query("latest", description="정렬 기준: latest | deadline | title"),
@@ -66,12 +103,18 @@ def list_announcements(
 ):
     if sort not in SORT_OPTIONS:
         raise AppError(400, "INVALID_SORT", "sort는 latest, deadline, title 중 하나여야 합니다.")
+    if statusLabel is not None and statusLabel not in STATUS_LABELS:
+        raise AppError(
+            400, "INVALID_STATUS_LABEL", f"statusLabel은 {', '.join(STATUS_LABELS)} 중 하나여야 합니다."
+        )
 
     conditions = []
     if q:
         conditions.append(Announcement.title.ilike(f"%{q}%"))
     if status:
         conditions.append(Announcement.status == status)
+    if statusLabel:
+        conditions.append(_status_label_expr() == statusLabel)
     if department:
         conditions.append(Announcement.department == department)
     if source:

@@ -50,7 +50,8 @@ Supabase 쪽에는 `supabase/employees_users.sql` 내용을 SQL Editor에 붙여
 - `GET /api/v1/health/db` → Supabase 연결 확인
 - `GET /api/v1/collect` → 3개 소스(K-Startup, 나라장터, 과기정통부) 수집 미리보기 (DB 저장 안 함)
 - `POST /api/v1/collect` → 수집 후 `announcements` 테이블에 upsert (`source`+`external_id` 기준 중복 방지)
-- `GET /api/v1/announcements?limit=20&source=kstartup` → 저장된 공고 재조회
+- `GET /api/v1/announcements` → 공고 목록 (쿼리: `q`(제목 검색), `status`(원본 상태값), `statusLabel`(정규화된 상태: 접수중/접수예정/마감임박/마감), `department`, `source`, `sort`(latest/deadline/title), `page`, `page_size`)
+- `GET /api/v1/announcements/{id}` → 공고 상세 (없으면 404 `ANNOUNCEMENT_NOT_FOUND`)
 - `POST /api/v1/auth/verify-employee` → `{empId, name}`이 사원 명부와 일치하는지 확인 (회원가입 1단계)
 - `POST /api/v1/auth/signup` → `{empId, name, email, pw}`로 계정 생성 (회원가입 2단계, 사원 인증 재검증)
 - `POST /api/v1/auth/login` → `{empId, pw}` 검증 후 로그인 토큰(JWT) 발급
@@ -69,4 +70,5 @@ Supabase 쪽에는 `supabase/employees_users.sql` 내용을 SQL Editor에 붙여
 
 - APScheduler로 `POST /api/v1/collect`를 하루 1회 자동 실행 (완료 — `core/scheduler.py`)
 - 인증(JWT) — 완료 (`api/v1/auth.py`)
-- 5주차 2차 작업: 공고 검색/필터/정렬/페이지네이션 확장, 키워드 CRUD, 저장공고 CRUD, 알림
+- 공고 검색/필터/정렬/페이지네이션/상세/상태값 정규화 — 완료 (`api/v1/announcements.py`)
+- 남은 것: 키워드 CRUD, 저장공고 CRUD, 알림. `statusLabel`의 "마감임박=3일 이내" 기준은 임시값이라 FE와 재확인 필요
