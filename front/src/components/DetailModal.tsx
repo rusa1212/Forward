@@ -1,15 +1,50 @@
+import { useEffect, useState } from 'react'
 import { ANNOUNCEMENTS } from '@/data/mock/announcements'
+import { getAnnouncementDetail } from '@/lib/announcements'
 import StatusBadge from '@/components/common/StatusBadge'
 import { useFavoritesContext } from '@/contexts/FavoritesContext'
 import { useDetailModal } from '@/hooks/useDetailModal'
+import type { Announcement } from '@/types'
 
-/** 공고 상세 모달 — `?detail=<id>` 쿼리스트링으로 열리고 닫힌다. */
+/**
+ * 공고 상세 모달 — `?detail=<id>` 쿼리스트링으로 열리고 닫힌다.
+ * 대시보드(MatchedFeed/SavedList)는 아직 mock 데이터라서 mock 배열에서 먼저 찾아보고,
+ * 없으면(=검색/실제 공고 id) BE에서 상세를 가져온다.
+ */
 export default function DetailModal() {
   const { detailId, closeDetail } = useDetailModal()
   const { isFavorite, toggleFavorite } = useFavoritesContext()
+  const [remote, setRemote] = useState<Announcement | null>(null)
+  const [notFound, setNotFound] = useState(false)
 
-  const a = detailId === null ? undefined : ANNOUNCEMENTS.find(item => item.id === detailId)
-  if (!a) return null
+  const mockMatch = detailId === null ? undefined : ANNOUNCEMENTS.find(item => item.id === detailId)
+
+  useEffect(() => {
+    setRemote(null)
+    setNotFound(false)
+    if (detailId === null || mockMatch) return
+    let cancelled = false
+    getAnnouncementDetail(detailId)
+      .then(result => { if (!cancelled) setRemote(result) })
+      .catch(() => { if (!cancelled) setNotFound(true) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailId])
+
+  if (detailId === null) return null
+
+  const a = mockMatch ?? remote
+  if (!a) {
+    if (!notFound) return null
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeDetail}>
+        <div className="bg-white rounded-2xl shadow-2xl p-8 text-center" onClick={e => e.stopPropagation()}>
+          <p className="text-sm text-gray-600 font-medium mb-4">존재하지 않는 공고입니다.</p>
+          <button onClick={closeDetail} className="text-sm text-[#457b9d] hover:underline font-medium">닫기</button>
+        </div>
+      </div>
+    )
+  }
 
   const onClose = closeDetail
   const onToggleFavorite = () => toggleFavorite(a.id)
@@ -24,7 +59,7 @@ export default function DetailModal() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2">
                 <StatusBadge status={a.status} />
-                <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{a.field}</span>
+                {a.field && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{a.field}</span>}
               </div>
               <h2 className="text-base font-bold text-gray-800 leading-snug">{a.title}</h2>
             </div>
@@ -45,7 +80,7 @@ export default function DetailModal() {
 
         <div className="px-6 py-5 space-y-4">
           {/* D-Day Banner */}
-          {a.dday >= 0 && a.dday <= 7 && (
+          {a.dday !== null && a.dday >= 0 && a.dday <= 7 && (
             <div className={`rounded-xl p-3.5 flex items-center gap-3 ${a.dday <= 1 ? 'bg-red-50 border border-red-200' : 'bg-amber-50 border border-amber-200'}`}>
               <svg className={`w-4 h-4 flex-shrink-0 ${a.dday <= 1 ? 'text-red-500' : 'text-amber-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />

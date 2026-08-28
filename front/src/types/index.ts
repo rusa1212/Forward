@@ -3,7 +3,7 @@ export type MyTab = 'profile' | 'keywords' | 'alerts'
 export type StatusType = '접수중' | '접수예정' | '마감임박' | '마감'
 
 export interface Announcement {
-  id: number
+  id: string
   title: string
   org: string
   department: string
@@ -15,7 +15,8 @@ export interface Announcement {
   receiptDate: string
   deadline: string
   deadlineTime: string
-  dday: number
+  /** BE가 접수시작/종료일 정보를 못 내려주는 공고(예: msit)는 null */
+  dday: number | null
   budget?: string
   contact?: string
   projectName?: string
@@ -26,7 +27,7 @@ export interface Announcement {
 }
 
 export interface Keyword {
-  id: number
+  id: string
   name: string
   matchCount: number
   dashboardAlert: boolean

@@ -16,7 +16,7 @@ export default function DashboardPage() {
     a.relatedKeywords.some(k => MY_KEYWORDS.includes(k))
   )
   const newToday = matchedAds.filter(a => a.postedDate === '2024-02-15' || a.postedDate === '2024-02-13' || a.postedDate === '2024-02-12')
-  const urgentAds = matchedAds.filter(a => a.dday >= 0 && a.dday <= 3)
+  const urgentAds = matchedAds.filter(a => a.dday !== null && a.dday >= 0 && a.dday <= 3)
   const favoriteList = ANNOUNCEMENTS.filter(a => favorites.has(a.id))
 
   return (

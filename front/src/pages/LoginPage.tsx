@@ -1,15 +1,28 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login } from '@/lib/auth'
+import { api, ApiError } from '@/lib/api'
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const [empId, setEmpId] = useState('')
   const [pw, setPw] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const onLogin = () => {
-    login()
-    navigate('/', { replace: true })
+  const onLogin = async () => {
+    if (loading || !empId.trim() || !pw) return
+    setLoading(true)
+    setError('')
+    try {
+      const { data } = await api.post<{ token: string; id: string; email: string }>('/auth/login', { empId, pw })
+      login(data.token)
+      navigate('/', { replace: true })
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : '로그인 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+    }
   }
   const onGoSignup = () => navigate('/signup')
 
@@ -34,8 +47,9 @@ export default function LoginPage() {
             <label className="text-xs font-medium text-gray-500 mb-1.5 block">비밀번호</label>
             <input type="password" value={pw} onChange={e => setPw(e.target.value)} onKeyDown={e => e.key === 'Enter' && onLogin()} className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#457b9d] focus:ring-2 focus:ring-[#457b9d]/20 transition" placeholder="비밀번호를 입력하세요" />
           </div>
-          <button onClick={onLogin} className="w-full bg-[#1d3557] text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-[#16293f] transition-colors mt-1">
-            로그인
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <button onClick={onLogin} disabled={loading} className="w-full bg-[#1d3557] text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-[#16293f] transition-colors mt-1 disabled:opacity-50">
+            {loading ? '로그인 중...' : '로그인'}
           </button>
         </div>
         <p className="mt-5 text-center text-xs text-gray-400">
