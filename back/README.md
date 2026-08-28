@@ -21,12 +21,14 @@ app/
     collect.py              수집 트리거 (GET: 미리보기, POST: 저장)
     announcements.py        저장된 공고 재조회
     auth.py                 사원 인증 + 회원가입/로그인/로그아웃 (JWT)
+    keywords.py              키워드 등록/조회/삭제 (로그인 필요)
   core/
     errors.py             공통 오류 응답 형식 ({"success": false, "error": {...}})
 requirements.txt
 .env.example
 supabase/
   employees_users.sql     Supabase SQL Editor에서 실행할 employees/users 테이블 생성 스크립트
+  keywords.sql             Supabase SQL Editor에서 실행할 keywords 테이블 생성 스크립트
 ```
 
 ## 실행 방법
@@ -56,6 +58,9 @@ Supabase 쪽에는 `supabase/employees_users.sql` 내용을 SQL Editor에 붙여
 - `POST /api/v1/auth/signup` → `{empId, name, email, pw}`로 계정 생성 (회원가입 2단계, 사원 인증 재검증)
 - `POST /api/v1/auth/login` → `{empId, pw}` 검증 후 로그인 토큰(JWT) 발급
 - `POST /api/v1/auth/logout` → 상태 없는(stateless) JWT라 서버가 지울 게 없음 (FE가 토큰만 버리면 됨)
+- `GET /api/v1/keywords` (로그인 필요, 헤더 `Authorization: Bearer <token>`) → 내 키워드 목록
+- `POST /api/v1/keywords` (로그인 필요) → `{keyword}`로 키워드 등록 (공백/50자 초과/중복 차단)
+- `DELETE /api/v1/keywords/{id}` (로그인 필요) → 내 키워드 삭제 (다른 사람 키워드는 404)
 
 ## 수집 대상 (공공데이터포털)
 
