@@ -1,14 +1,18 @@
-/** 데모 수준의 인증 — 세션스토리지 플래그 하나로만 로그인 여부를 판단한다. */
-const KEY = 'sms-notice-auth'
+/** 로그인 토큰(JWT) 저장/조회. back/app/api/v1/auth.py의 로그인 응답 토큰을 그대로 저장한다. */
+const TOKEN_KEY = 'sms-notice-auth-token'
 
-export function isAuthenticated() {
-  return sessionStorage.getItem(KEY) === '1'
+export function getToken(): string | null {
+  return sessionStorage.getItem(TOKEN_KEY)
 }
 
-export function login() {
-  sessionStorage.setItem(KEY, '1')
+export function isAuthenticated() {
+  return getToken() !== null
+}
+
+export function login(token: string) {
+  sessionStorage.setItem(TOKEN_KEY, token)
 }
 
 export function logout() {
-  sessionStorage.removeItem(KEY)
+  sessionStorage.removeItem(TOKEN_KEY)
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { api, ApiError } from '@/lib/api'
 
 export default function SignupPage() {
   const navigate = useNavigate()
@@ -12,20 +13,38 @@ export default function SignupPage() {
   const [pw, setPw] = useState('')
   const [pwConfirm, setPwConfirm] = useState('')
   const [email, setEmail] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [signupError, setSignupError] = useState('')
 
   const verified = verifyState === 'ok'
   const pwMismatch = pwConfirm.length > 0 && pw !== pwConfirm
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (!empId.trim() || !name.trim()) return
     setVerifyState('loading')
-    setTimeout(() => {
-      // 사번 20230001 + 이름 김민준일 때만 인증 성공 (데모)
-      setVerifyState(empId === '20230001' && name === '김민준' ? 'ok' : 'fail')
-    }, 1200)
+    try {
+      const { data } = await api.post<{ verified: boolean }>('/auth/verify-employee', { empId, name })
+      setVerifyState(data.verified ? 'ok' : 'fail')
+    } catch {
+      setVerifyState('fail')
+    }
   }
 
   const canSubmit = verified && pw.length >= 6 && pw === pwConfirm && email.includes('@')
+
+  const handleSubmit = async () => {
+    if (!canSubmit || submitting) return
+    setSubmitting(true)
+    setSignupError('')
+    try {
+      await api.post('/auth/signup', { empId, name, email, pw })
+      onDone()
+    } catch (e) {
+      setSignupError(e instanceof ApiError ? e.message : '회원가입 중 오류가 발생했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] flex items-center justify-center py-10">
@@ -123,9 +142,10 @@ export default function SignupPage() {
             </div>
           </div>
 
-          <button onClick={onDone} disabled={!canSubmit}
+          {signupError && <p className="text-xs text-red-500">{signupError}</p>}
+          <button onClick={handleSubmit} disabled={!canSubmit || submitting}
             className="w-full bg-[#1d3557] text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-[#16293f] transition-colors disabled:opacity-40 disabled:cursor-not-allowed mt-1">
-            회원가입
+            {submitting ? '가입 처리 중...' : '회원가입'}
           </button>
         </div>
 

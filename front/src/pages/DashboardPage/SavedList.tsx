@@ -4,7 +4,7 @@ import type { Announcement } from '@/types'
 
 export default function SavedList({ favoriteList, onOpenDetail }: {
   favoriteList: Announcement[]
-  onOpenDetail: (id: number) => void
+  onOpenDetail: (id: string) => void
 }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

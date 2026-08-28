@@ -7,7 +7,7 @@ import type { Announcement } from '@/types'
 export default function MatchedFeed({ matchedAds, newToday, onOpenDetail }: {
   matchedAds: Announcement[]
   newToday: Announcement[]
-  onOpenDetail: (id: number) => void
+  onOpenDetail: (id: string) => void
 }) {
   const navigate = useNavigate()
 

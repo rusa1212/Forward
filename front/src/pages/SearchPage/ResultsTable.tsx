@@ -4,8 +4,8 @@ import type { Announcement } from '@/types'
 
 export default function ResultsTable({ rows, favorites, onOpenDetail }: {
   rows: Announcement[]
-  favorites: Set<number>
-  onOpenDetail: (id: number) => void
+  favorites: Set<string>
+  onOpenDetail: (id: string) => void
 }) {
   return (
     <table className="w-full">
