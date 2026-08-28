@@ -21,12 +21,14 @@ app/
     collect.py              수집 트리거 (GET: 미리보기, POST: 저장)
     announcements.py        저장된 공고 재조회
     auth.py                 사원 인증 + 회원가입/로그인/로그아웃 (JWT)
+    saved_announcements.py   공고 저장/저장취소/조회 (로그인 필요)
   core/
     errors.py             공통 오류 응답 형식 ({"success": false, "error": {...}})
 requirements.txt
 .env.example
 supabase/
-  employees_users.sql     Supabase SQL Editor에서 실행할 employees/users 테이블 생성 스크립트
+  employees_users.sql               Supabase SQL Editor에서 실행할 employees/users 테이블 생성 스크립트
+  saved_announcements.sql           Supabase SQL Editor에서 실행할 saved_announcements 테이블 생성 스크립트
 ```
 
 ## 실행 방법
@@ -55,6 +57,9 @@ Supabase 쪽에는 `supabase/employees_users.sql` 내용을 SQL Editor에 붙여
 - `POST /api/v1/auth/signup` → `{empId, name, email, pw}`로 계정 생성 (회원가입 2단계, 사원 인증 재검증)
 - `POST /api/v1/auth/login` → `{empId, pw}` 검증 후 로그인 토큰(JWT) 발급
 - `POST /api/v1/auth/logout` → 상태 없는(stateless) JWT라 서버가 지울 게 없음 (FE가 토큰만 버리면 됨)
+- `GET /api/v1/saved-announcements` (로그인 필요, 헤더 `Authorization: Bearer <token>`) → 내가 저장한 공고 목록
+- `POST /api/v1/saved-announcements` (로그인 필요) → `{announcementId}`로 공고 저장 (중복 저장 차단, 존재하지 않는 공고면 404)
+- `DELETE /api/v1/saved-announcements/{announcementId}` (로그인 필요) → 저장 취소
 
 ## 수집 대상 (공공데이터포털)
 
@@ -69,4 +74,5 @@ Supabase 쪽에는 `supabase/employees_users.sql` 내용을 SQL Editor에 붙여
 
 - APScheduler로 `POST /api/v1/collect`를 하루 1회 자동 실행 (완료 — `core/scheduler.py`)
 - 인증(JWT) — 완료 (`api/v1/auth.py`)
-- 5주차 2차 작업: 공고 검색/필터/정렬/페이지네이션 확장, 키워드 CRUD, 저장공고 CRUD, 알림
+- 저장공고 CRUD — 완료 (`api/v1/saved_announcements.py`)
+- 남은 것: 공고 검색/필터/정렬/페이지네이션, 키워드 CRUD, 알림
