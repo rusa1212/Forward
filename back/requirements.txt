@@ -4,7 +4,8 @@ pydantic-settings
 email-validator
 httpx
 sqlalchemy
-psycopg2-binary
+PyMySQL
+cryptography
 apscheduler
 bcrypt
 PyJWT

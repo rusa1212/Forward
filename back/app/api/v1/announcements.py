@@ -26,9 +26,19 @@ from app.db.session import get_db
 router = APIRouter(tags=["announcements"])
 
 # 5-1plan.md "정렬 권장 기준" 표 그대로 반영
+# DB 전환 노트: MySQL은 NULLS LAST 문법이 없어 (컬럼 IS NULL) ASC를 앞에 두는 방식으로 대체
+# (IS NULL이 false=0인 행이 먼저 오므로, 날짜 없는 공고가 항상 목록 뒤로 감 — PG/MySQL 동일 동작)
 SORT_OPTIONS = {
-    "latest": (Announcement.reception_start.desc(), Announcement.id.desc()),
-    "deadline": (Announcement.reception_end.asc().nulls_last(), Announcement.id.asc()),
+    "latest": (
+        Announcement.reception_start.is_(None).asc(),
+        Announcement.reception_start.desc(),
+        Announcement.id.desc(),
+    ),
+    "deadline": (
+        Announcement.reception_end.is_(None).asc(),
+        Announcement.reception_end.asc(),
+        Announcement.id.asc(),
+    ),
     "title": (Announcement.title.asc(), Announcement.id.asc()),
 }
 
@@ -37,8 +47,12 @@ STATUS_LABELS = ("접수중", "접수예정", "마감임박", "마감")
 
 
 def _status_label_expr():
-    """statusLabel을 SQL에서 계산 (WHERE 필터가 페이지네이션과 같이 정확히 동작하도록)."""
-    today = func.current_date()
+    """statusLabel을 SQL에서 계산 (WHERE 필터가 페이지네이션과 같이 정확히 동작하도록).
+
+    DB 전환 노트: func.current_date() + timedelta는 MySQL에서 날짜 연산으로 컴파일되지 않아,
+    _status_label()과 동일하게 앱 서버의 date.today()를 리터럴로 바인딩한다.
+    """
+    today = date.today()
     return case(
         (Announcement.reception_start.is_(None) & Announcement.reception_end.is_(None), literal(None)),
         (Announcement.reception_end < today, "마감"),
@@ -143,7 +157,7 @@ def list_announcements(
 @router.get("/announcements/{announcement_id}")
 def get_announcement(announcement_id: str, db: Session = Depends(get_db)):
     try:
-        parsed_id = uuid.UUID(announcement_id)
+        parsed_id = str(uuid.UUID(announcement_id))  # CHAR(36) PK — 형식 검증 후 문자열로 조회
     except ValueError:
         raise AppError(404, "ANNOUNCEMENT_NOT_FOUND", "존재하지 않는 공고입니다.")
 
