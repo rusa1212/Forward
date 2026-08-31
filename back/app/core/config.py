@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     # 공공데이터포털 발급 API 키 (4개 서비스 공용)
     DATA_GO_KR_API_KEY: str = ""
 
-    # Supabase 접속정보 (postgresql+psycopg2://... 형식)
+    # DB 접속정보 (MySQL/MariaDB, mysql+pymysql://... 형식 — .env.example 참고)
     DATABASE_URL: str = ""
 
     # 매일 자동 수집 실행 시각 (서버 로컬 시간 기준)

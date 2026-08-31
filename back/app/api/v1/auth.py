@@ -123,7 +123,13 @@ def get_current_user(authorization: str | None = Header(None), db: Session = Dep
     except jwt.PyJWTError:
         raise AppError(401, "INVALID_TOKEN", "유효하지 않거나 만료된 토큰입니다.")
 
-    user = db.get(User, uuid.UUID(payload["sub"]))
+    # DB 전환 노트: PK가 CHAR(36) 문자열이라 uuid.UUID는 형식 검증·정규화용으로만 쓰고 str로 조회
+    try:
+        user_id = str(uuid.UUID(payload["sub"]))
+    except (KeyError, ValueError):
+        raise AppError(401, "INVALID_TOKEN", "유효하지 않거나 만료된 토큰입니다.")
+
+    user = db.get(User, user_id)
     if user is None:
         raise AppError(401, "UNAUTHORIZED", "존재하지 않는 사용자입니다.")
     return user

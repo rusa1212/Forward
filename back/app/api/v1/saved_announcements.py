@@ -59,7 +59,7 @@ def save_announcement(
     current_user: User = Depends(get_current_user),
 ):
     try:
-        parsed_announcement_id = uuid.UUID(body.announcementId)
+        parsed_announcement_id = str(uuid.UUID(body.announcementId))  # CHAR(36) PK — 문자열로 비교
     except ValueError:
         raise AppError(404, "ANNOUNCEMENT_NOT_FOUND", "존재하지 않는 공고입니다.")
 
@@ -91,7 +91,7 @@ def unsave_announcement(
     current_user: User = Depends(get_current_user),
 ):
     try:
-        parsed_announcement_id = uuid.UUID(announcement_id)
+        parsed_announcement_id = str(uuid.UUID(announcement_id))  # CHAR(36) PK — 문자열로 비교
     except ValueError:
         raise AppError(404, "SAVED_ANNOUNCEMENT_NOT_FOUND", "저장한 공고를 찾을 수 없습니다.")
 

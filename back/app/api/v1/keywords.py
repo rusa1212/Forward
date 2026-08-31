@@ -68,7 +68,7 @@ def delete_keyword(
     current_user: User = Depends(get_current_user),
 ):
     try:
-        parsed_id = uuid.UUID(keyword_id)
+        parsed_id = str(uuid.UUID(keyword_id))  # CHAR(36) PK — 형식 검증 후 문자열로 비교
     except ValueError:
         raise AppError(404, "KEYWORD_NOT_FOUND", "존재하지 않는 키워드입니다.")
 
