@@ -15,8 +15,12 @@
 | `back/app/api/v1/auth·keywords·saved_announcements.py` | `uuid.UUID(...)` 객체로 PK 조회 | `str(uuid.UUID(...))` — 형식 검증 후 문자열로 조회 |
 | `back/requirements.txt` | `psycopg2-binary` | `PyMySQL` + `cryptography`(MySQL 8 caching_sha2_password 인증용) |
 | `back/.env(.example)`, `config.py` | `postgresql+psycopg2://...` | `mysql+pymysql://user:pw@host:3306/forward?charset=utf8mb4` |
-| `back/supabase/*.sql` | Postgres DDL | **`back/mysql/schema.sql`로 재작성** (supabase 폴더는 폐기 예정 — 실행 금지) |
+| `back/supabase/*.sql` | Postgres DDL | 삭제. 스키마 정본은 **alembic** (`back/alembic/versions/`) — `docs/be/alembic-마이그레이션.md` |
 | `back/app/db/session.py` | — | mysql URL일 때 세션 `time_zone='+00:00'` 고정 추가 |
+
+> 7주차 갱신: 최초엔 `back/mysql/schema.sql` 단일 파일로 스키마를 만들었으나,
+> 컬럼 추가 시 팀원이 DB를 통째로 다시 만들어야 하는 문제가 있어 **alembic 마이그레이션**으로 대체했습니다.
+> `schema.sql`은 삭제됐고, 아래 4절 절차도 alembic 기준으로 갱신했습니다.
 
 ## 2. RLS 관련 팀 공지 ⚠️
 
@@ -33,38 +37,49 @@ MySQL/MariaDB에는 Supabase의 RLS(Row Level Security)가 **없습니다**.
 - 화면 표시용 KST 변환은 FE(또는 응답 계층)에서 처리합니다.
 - 접수시작/마감일은 시간대 개념이 없는 `DATE`라 영향 없습니다. statusLabel/dday 계산은 앱 서버의 `date.today()`(KST) 기준입니다.
 
-## 4. 로컬 개발 DB 준비
+## 4. 로컬 개발 DB 준비 (alembic 기준)
 
 ```bash
-# 1) MySQL 8 (또는 MariaDB 10.6+) 설치 후 스키마 적용
-mysql -u root -p < back/mysql/schema.sql
-
-# 2) 앱 전용 계정 생성 (root 사용 금지)
+# 1) MySQL 8 (또는 MariaDB 10.4+) 설치 후 빈 DB + 계정 생성
 mysql -u root -p -e "
+  create database if not exists forward
+    default character set utf8mb4 collate utf8mb4_unicode_ci;
   create user if not exists 'forward'@'localhost' identified by 'forward';
-  grant select, insert, update, delete on forward.* to 'forward'@'localhost';
+  grant all privileges on forward.* to 'forward'@'localhost';
   flush privileges;"
+# ↑ 로컬은 alembic(스키마 생성)도 이 계정으로 돌리므로 ALL. 공용/운영은 5절 참고.
 
-# 3) back/.env
+# 2) back/.env
 # DATABASE_URL=mysql+pymysql://forward:forward@localhost:3306/forward?charset=utf8mb4
 
-# 4) 의존성 재설치 후 실행
+# 3) 의존성 설치 + 스키마 적용
 cd back && pip install -r requirements.txt
+alembic upgrade head
+
+# 4) (선택) 데모 사원 시드 — 프론트 회원가입 데모값(20230001 / 김민준)
+mysql -u root -p forward < dev-seed.sql
+
+# 5) 실행
 uvicorn app.main:app --reload --port 8000
 ```
+
+이후 스키마가 바뀌면 (팀원이 마이그레이션을 추가하면) pull 후 `alembic upgrade head` 한 줄로 동기화됩니다.
+마이그레이션 추가/적용/롤백 절차는 **`docs/be/alembic-마이그레이션.md`**.
 
 Docker를 쓰는 팀원은:
 
 ```bash
 docker run -d --name forward-mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=forward \
   -p 3306:3306 mysql:8 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+# 컨테이너가 MYSQL_DATABASE=forward 를 만들어 주므로 위 1)의 create database는 생략,
+# 계정 grant 만 실행한 뒤 alembic upgrade head.
 ```
 
 ## 5. 데이터 이관
 
 기존 Supabase의 실데이터가 적어(공고는 수집으로 재생성 가능) **별도 이관 스크립트 없이 재수집으로 재생성**합니다:
 
-1. `back/mysql/schema.sql` 적용 (사원 명부 시드 포함 — 실명부로 교체 필요)
+1. `alembic upgrade head` 로 스키마 생성 (+ 선택: `dev-seed.sql`로 데모 사원 — 실명부로 교체 필요)
 2. 공공데이터포털 키 설정 후 `POST /api/v1/collect` 1회 실행 → announcements 재적재
 3. 계정/키워드/저장공고는 테스트 데이터였으므로 재가입으로 대체
 

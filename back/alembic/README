@@ -1,0 +1,7 @@
+DB 마이그레이션 (alembic).
+
+- 스키마 정본: alembic/versions/*.py
+- 접속 URL: alembic/env.py가 back/.env의 DATABASE_URL을 읽어 씀 (alembic.ini에는 없음)
+- autogenerate 기준: app/db/models.py 의 Base.metadata
+
+사용법·팀 규칙: docs/be/alembic-마이그레이션.md
