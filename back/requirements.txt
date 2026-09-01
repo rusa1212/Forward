@@ -4,6 +4,7 @@ pydantic-settings
 email-validator
 httpx
 sqlalchemy
+alembic
 PyMySQL
 cryptography
 apscheduler
