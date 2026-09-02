@@ -17,6 +17,7 @@ export default function ResultsTable({ rows, favorites, keywords, onOpenDetail }
         <tr className="bg-gray-50/80 border-b border-gray-100">
           <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500">공고명</th>
           <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 w-28">기관명</th>
+          <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 w-24">출처</th>
           <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 w-20">상태</th>
           <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 w-24">공고일</th>
           <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 w-24">마감일</th>
@@ -49,6 +50,9 @@ export default function ResultsTable({ rows, favorites, keywords, onOpenDetail }
               </div>
             </td>
             <td className="px-4 py-3.5 text-sm text-gray-600">{a.org}</td>
+            <td className="px-4 py-3.5 text-center">
+              <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{a.announcementType}</span>
+            </td>
             <td className="px-4 py-3.5 text-center"><StatusBadge status={a.status} /></td>
             <td className="px-4 py-3.5 text-center text-xs text-gray-400">{a.postedDate}</td>
             <td className="px-4 py-3.5 text-center text-xs text-gray-500">{a.deadline}</td>

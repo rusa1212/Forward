@@ -86,14 +86,10 @@ export default function DetailModal() {
           {/* Info table — mirrors the reference layout */}
           <div className="border border-gray-200 rounded-xl overflow-hidden text-sm">
             {/* Row 1 */}
-            <div className="grid grid-cols-3 border-b border-gray-100">
+            <div className="grid grid-cols-2 border-b border-gray-100">
               <div className="flex items-center gap-2 px-4 py-3 border-r border-gray-100">
-                <span className="text-xs text-gray-400 whitespace-nowrap">공고형태</span>
+                <span className="text-xs text-gray-400 whitespace-nowrap">출처</span>
                 <span className="font-medium text-gray-800">{a.announcementType}</span>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-3 border-r border-gray-100">
-                <span className="text-xs text-gray-400 whitespace-nowrap">부처명</span>
-                <span className="font-medium text-gray-800">{a.department}</span>
               </div>
               <div className="flex items-center gap-2 px-4 py-3">
                 <span className="text-xs text-gray-400 whitespace-nowrap">공고기관명</span>
