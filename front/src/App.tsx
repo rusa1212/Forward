@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import RequireAuth from '@/components/RequireAuth'
+import RequireAdmin from '@/components/RequireAdmin'
 import MainLayout from '@/components/layout/MainLayout'
 import LoginPage from '@/pages/LoginPage'
 import SignupPage from '@/pages/SignupPage'
@@ -7,6 +8,7 @@ import SignupDonePage from '@/pages/SignupDonePage'
 import DashboardPage from '@/pages/DashboardPage/DashboardPage'
 import SearchPage from '@/pages/SearchPage/SearchPage'
 import MyPage from '@/pages/MyPage/MyPage'
+import AdminPage from '@/pages/AdminPage/AdminPage'
 
 export default function App() {
   return (
@@ -22,6 +24,7 @@ export default function App() {
         <Route path="/mypage" element={<MyPage />} />
         <Route path="/mypage/keywords" element={<MyPage />} />
         <Route path="/mypage/alerts" element={<MyPage />} />
+        <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

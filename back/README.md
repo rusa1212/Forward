@@ -26,8 +26,11 @@ app/
     auth.py                 사원 인증 + 회원가입/로그인/로그아웃 (JWT)
     keywords.py             키워드 CRUD (로그인 필요)
     saved_announcements.py   공고 저장/저장취소/조회 (로그인 필요)
+    admin.py                 관리자 전용: 사원 명부 등록/삭제, 가입자 목록/삭제 (관리자만)
 alembic/                 DB 마이그레이션 (스키마 정본). alembic/versions/*.py
 alembic.ini
+scripts/
+  promote_admin.py        최초 관리자 지정용 1회성 스크립트
 requirements.txt
 .env.example
 dev-seed.sql             로컬 개발용 시드(데모 사원 1명) — 선택
@@ -90,6 +93,13 @@ copy .env.example .env   # DATA_GO_KR_API_KEY, DATABASE_URL, JWT_SECRET 채우�
 - `GET /api/v1/saved-announcements` (로그인 필요) → 내가 저장한 공고 목록
 - `POST /api/v1/saved-announcements` (로그인 필요) → `{announcementId}`로 공고 저장 (중복 저장 차단, 존재하지 않는 공고면 404)
 - `DELETE /api/v1/saved-announcements/{announcementId}` (로그인 필요) → 저장 취소
+- `GET /api/v1/admin/employees` (관리자 전용) → 사원 명부 전체 목록 (가입 여부 `joined` 포함)
+- `POST /api/v1/admin/employees` (관리자 전용) → `{empId, name, department?}`로 사원 등록 (중복 409 `DUPLICATE_EMP_ID`)
+- `DELETE /api/v1/admin/employees/{empId}` (관리자 전용) → 사원 삭제 (이미 가입한 사원이면 409 `EMPLOYEE_ALREADY_JOINED`)
+- `GET /api/v1/admin/users` (관리자 전용) → 가입자(계정) 전체 목록
+- `DELETE /api/v1/admin/users/{userId}` (관리자 전용) → 가입자 계정 삭제 (로그인 차단)
+
+관리자 전용 API는 토큰 없으면 401, 로그인했지만 관리자가 아니면 403을 반환한다 (`app/api/v1/auth.py`의 `get_current_admin`). 최초 관리자는 `scripts/promote_admin.py <emp_id>`로 지정한다 (해당 사번으로 이미 회원가입까지 마친 계정이어야 함).
 
 ## 수집 대상 (공공데이터포털)
 

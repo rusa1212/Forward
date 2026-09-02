@@ -15,8 +15,11 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      const { data } = await api.post<{ token: string; id: string; email: string }>('/auth/login', { empId, pw })
-      login(data.token)
+      const { data } = await api.post<{ token: string; id: string; email: string; isAdmin: boolean }>(
+        '/auth/login',
+        { empId, pw }
+      )
+      login(data.token, data.isAdmin)
       navigate('/', { replace: true })
     } catch (e) {
       setError(e instanceof ApiError ? e.message : '로그인 중 오류가 발생했습니다.')

@@ -16,6 +16,7 @@ from datetime import date, datetime
 
 from sqlalchemy import (
     CHAR,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -74,6 +75,7 @@ class User(Base):
     )
     email: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
     )
