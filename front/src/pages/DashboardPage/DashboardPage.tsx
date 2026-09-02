@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getDashboardSummary, type DashboardSummary } from '@/lib/dashboard'
+import { getName } from '@/lib/auth'
 import { useKeywordsContext } from '@/contexts/KeywordsContext'
 import { useDetailModal } from '@/hooks/useDetailModal'
 import StatsGrid from './StatsGrid'
@@ -43,7 +44,7 @@ export default function DashboardPage() {
       <div className="bg-[#1d3557] px-8 py-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-white text-xl font-bold">안녕하세요, 담당자님 👋</h1>
+            <h1 className="text-white text-xl font-bold">안녕하세요, {getName()}님 👋</h1>
             <p className="text-blue-300 text-sm mt-1">오늘 등록 키워드에 매칭된 공고 <strong className="text-white">{counts.matched}건</strong>이 있습니다.</p>
           </div>
         </div>

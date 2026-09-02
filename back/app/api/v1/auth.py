@@ -101,10 +101,18 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     if user is None or not _verify_password(body.pw, user.password_hash):
         raise AppError(401, "INVALID_CREDENTIALS", "사번 또는 비밀번호가 올바르지 않습니다.")
 
+    employee = db.get(Employee, user.emp_id)
+
     token = _create_token(str(user.id))
     return {
         "success": True,
-        "data": {"token": token, "id": str(user.id), "email": user.email, "isAdmin": user.is_admin},
+        "data": {
+            "token": token,
+            "id": str(user.id),
+            "email": user.email,
+            "name": employee.name,
+            "isAdmin": user.is_admin,
+        },
     }
 
 
