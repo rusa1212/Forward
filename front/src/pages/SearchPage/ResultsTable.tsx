@@ -1,12 +1,16 @@
 import StatusBadge from '@/components/common/StatusBadge'
 import DDayBadge from '@/components/common/DDayBadge'
-import type { Announcement } from '@/types'
+import { getKeywordColor, matchKeywords } from '@/lib/keywordMatch'
+import type { Announcement, Keyword } from '@/types'
 
-export default function ResultsTable({ rows, favorites, onOpenDetail }: {
+export default function ResultsTable({ rows, favorites, keywords, onOpenDetail }: {
   rows: Announcement[]
   favorites: Set<string>
+  keywords: Keyword[]
   onOpenDetail: (id: string) => void
 }) {
+  const keywordNames = keywords.map(k => k.name)
+
   return (
     <table className="w-full">
       <thead>
@@ -36,9 +40,12 @@ export default function ResultsTable({ rows, favorites, onOpenDetail }: {
                 <p className="text-sm text-gray-800 font-medium">{a.title}</p>
               </div>
               <div className="flex gap-1 mt-1 ml-0.5">
-                {a.relatedKeywords.map(k => (
-                  <span key={k} className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100/50">{k}</span>
-                ))}
+                {matchKeywords(a, keywordNames).map(k => {
+                  const c = getKeywordColor(k)
+                  return (
+                    <span key={k} className={`text-[10px] ${c.bg} ${c.text} px-1.5 py-0.5 rounded border ${c.border}`}>{k}</span>
+                  )
+                })}
               </div>
             </td>
             <td className="px-4 py-3.5 text-sm text-gray-600">{a.org}</td>

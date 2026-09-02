@@ -1,20 +1,23 @@
 import { useEffect, useState } from 'react'
 import { listAnnouncements } from '@/lib/announcements'
-import { STATUS_TYPES } from '@/constants'
+import { SORT_OPTIONS, STATUS_TYPES } from '@/constants'
 import { useFavoritesContext } from '@/contexts/FavoritesContext'
+import { useKeywordsContext } from '@/contexts/KeywordsContext'
 import { useDetailModal } from '@/hooks/useDetailModal'
 import ResultsTable from './ResultsTable'
 import Pagination from './Pagination'
-import type { Announcement, StatusType } from '@/types'
+import type { Announcement, SortType, StatusType } from '@/types'
 
 const PAGE_SIZE = 8
 
 export default function SearchPage() {
   const { favorites } = useFavoritesContext()
+  const { keywords } = useKeywordsContext()
   const { openDetail } = useDetailModal()
   const [keyword, setKeyword] = useState('')
   const [query, setQuery] = useState('')
   const [selectedStatus, setSelectedStatus] = useState<'전체' | StatusType>('전체')
+  const [sort, setSort] = useState<SortType>('latest')
   const [currentPage, setCurrentPage] = useState(1)
 
   const [results, setResults] = useState<Announcement[]>([])
@@ -30,6 +33,7 @@ export default function SearchPage() {
     listAnnouncements({
       q: query || undefined,
       statusLabel: selectedStatus === '전체' ? undefined : selectedStatus,
+      sort,
       page: currentPage,
       pageSize: PAGE_SIZE,
     })
@@ -43,7 +47,7 @@ export default function SearchPage() {
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [query, selectedStatus, currentPage, reloadTick])
+  }, [query, selectedStatus, sort, currentPage, reloadTick])
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -56,11 +60,17 @@ export default function SearchPage() {
     setKeyword('')
     setQuery('')
     setSelectedStatus('전체')
+    setSort('latest')
     setCurrentPage(1)
   }
 
   const selectStatus = (s: '전체' | StatusType) => {
     setSelectedStatus(s)
+    setCurrentPage(1)
+  }
+
+  const selectSort = (s: SortType) => {
+    setSort(s)
     setCurrentPage(1)
   }
 
@@ -152,6 +162,18 @@ export default function SearchPage() {
                 </button>
               ))}
             </div>
+            <div className="flex items-center gap-1.5 mt-2">
+              <span className="text-xs text-gray-400 mr-1">정렬</span>
+              {SORT_OPTIONS.map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => selectSort(value)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${sort === value ? 'bg-[#1d3557] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
         {loading ? (
@@ -180,7 +202,7 @@ export default function SearchPage() {
           </div>
         ) : (
           <>
-            <ResultsTable rows={results} favorites={favorites} onOpenDetail={openDetail} />
+            <ResultsTable rows={results} favorites={favorites} keywords={keywords} onOpenDetail={openDetail} />
             <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
           </>
         )}

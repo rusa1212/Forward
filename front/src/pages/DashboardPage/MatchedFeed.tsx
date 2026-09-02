@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import StatusBadge from '@/components/common/StatusBadge'
 import DDayBadge from '@/components/common/DDayBadge'
-import { matchKeywords } from '@/lib/keywordMatch'
+import { getKeywordColor, matchKeywords } from '@/lib/keywordMatch'
 import type { Announcement } from '@/types'
 
 export default function MatchedFeed({ matchedAds, newTodayCount, keywordNames, onOpenDetail }: {
@@ -40,9 +40,12 @@ export default function MatchedFeed({ matchedAds, newTodayCount, keywordNames, o
                     <span className="text-xs text-gray-400">{a.org}</span>
                     <span className="text-gray-200">·</span>
                     <div className="flex gap-1">
-                      {matched.map(k => (
-                        <span key={k} className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100/50">{k}</span>
-                      ))}
+                      {matched.map(k => {
+                        const c = getKeywordColor(k)
+                        return (
+                          <span key={k} className={`text-[10px] ${c.bg} ${c.text} px-1.5 py-0.5 rounded border ${c.border}`}>{k}</span>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>
