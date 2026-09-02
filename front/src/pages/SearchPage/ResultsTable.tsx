@@ -1,18 +1,23 @@
 import StatusBadge from '@/components/common/StatusBadge'
 import DDayBadge from '@/components/common/DDayBadge'
-import type { Announcement } from '@/types'
+import { getKeywordColor, matchKeywords } from '@/lib/keywordMatch'
+import type { Announcement, Keyword } from '@/types'
 
-export default function ResultsTable({ rows, favorites, onOpenDetail }: {
+export default function ResultsTable({ rows, favorites, keywords, onOpenDetail }: {
   rows: Announcement[]
   favorites: Set<string>
+  keywords: Keyword[]
   onOpenDetail: (id: string) => void
 }) {
+  const keywordNames = keywords.map(k => k.name)
+
   return (
     <table className="w-full">
       <thead>
         <tr className="bg-gray-50/80 border-b border-gray-100">
           <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500">공고명</th>
           <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 w-28">기관명</th>
+          <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 w-24">출처</th>
           <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 w-20">상태</th>
           <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 w-24">공고일</th>
           <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 w-24">마감일</th>
@@ -36,12 +41,18 @@ export default function ResultsTable({ rows, favorites, onOpenDetail }: {
                 <p className="text-sm text-gray-800 font-medium">{a.title}</p>
               </div>
               <div className="flex gap-1 mt-1 ml-0.5">
-                {a.relatedKeywords.map(k => (
-                  <span key={k} className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100/50">{k}</span>
-                ))}
+                {matchKeywords(a, keywordNames).map(k => {
+                  const c = getKeywordColor(k)
+                  return (
+                    <span key={k} className={`text-[10px] ${c.bg} ${c.text} px-1.5 py-0.5 rounded border ${c.border}`}>{k}</span>
+                  )
+                })}
               </div>
             </td>
             <td className="px-4 py-3.5 text-sm text-gray-600">{a.org}</td>
+            <td className="px-4 py-3.5 text-center">
+              <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{a.announcementType}</span>
+            </td>
             <td className="px-4 py-3.5 text-center"><StatusBadge status={a.status} /></td>
             <td className="px-4 py-3.5 text-center text-xs text-gray-400">{a.postedDate}</td>
             <td className="px-4 py-3.5 text-center text-xs text-gray-500">{a.deadline}</td>

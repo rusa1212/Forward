@@ -1,6 +1,7 @@
 export type Page = 'login' | 'signup' | 'signupDone' | 'dashboard' | 'search' | 'mypage' | 'mypage-keywords'
 export type MyTab = 'profile' | 'keywords' | 'alerts'
 export type StatusType = '접수중' | '접수예정' | '마감임박' | '마감'
+export type SortType = 'latest' | 'deadline' | 'title'
 
 export interface Announcement {
   id: string
@@ -32,4 +33,22 @@ export interface Keyword {
   matchCount: number
   dashboardAlert: boolean
   emailAlert: boolean
+}
+
+export interface AdminEmployee {
+  empId: string
+  name: string
+  department: string | null
+  createdAt: string
+  joined: boolean
+}
+
+export interface AdminUser {
+  id: string
+  empId: string
+  name: string
+  department: string | null
+  email: string
+  isAdmin: boolean
+  createdAt: string
 }

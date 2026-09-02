@@ -1,39 +1,31 @@
 import { useEffect, useState } from 'react'
-import { ANNOUNCEMENTS } from '@/data/mock/announcements'
 import { getAnnouncementDetail } from '@/lib/announcements'
 import StatusBadge from '@/components/common/StatusBadge'
 import { useFavoritesContext } from '@/contexts/FavoritesContext'
 import { useDetailModal } from '@/hooks/useDetailModal'
 import type { Announcement } from '@/types'
 
-/**
- * 공고 상세 모달 — `?detail=<id>` 쿼리스트링으로 열리고 닫힌다.
- * 대시보드(MatchedFeed/SavedList)는 아직 mock 데이터라서 mock 배열에서 먼저 찾아보고,
- * 없으면(=검색/실제 공고 id) BE에서 상세를 가져온다.
- */
+/** 공고 상세 모달 — `?detail=<id>` 쿼리스트링으로 열리고 닫힌다. */
 export default function DetailModal() {
   const { detailId, closeDetail } = useDetailModal()
   const { isFavorite, toggleFavorite } = useFavoritesContext()
   const [remote, setRemote] = useState<Announcement | null>(null)
   const [notFound, setNotFound] = useState(false)
 
-  const mockMatch = detailId === null ? undefined : ANNOUNCEMENTS.find(item => item.id === detailId)
-
   useEffect(() => {
     setRemote(null)
     setNotFound(false)
-    if (detailId === null || mockMatch) return
+    if (detailId === null) return
     let cancelled = false
     getAnnouncementDetail(detailId)
       .then(result => { if (!cancelled) setRemote(result) })
       .catch(() => { if (!cancelled) setNotFound(true) })
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailId])
 
   if (detailId === null) return null
 
-  const a = mockMatch ?? remote
+  const a = remote
   if (!a) {
     if (!notFound) return null
     return (
@@ -94,14 +86,10 @@ export default function DetailModal() {
           {/* Info table — mirrors the reference layout */}
           <div className="border border-gray-200 rounded-xl overflow-hidden text-sm">
             {/* Row 1 */}
-            <div className="grid grid-cols-3 border-b border-gray-100">
+            <div className="grid grid-cols-2 border-b border-gray-100">
               <div className="flex items-center gap-2 px-4 py-3 border-r border-gray-100">
-                <span className="text-xs text-gray-400 whitespace-nowrap">공고형태</span>
+                <span className="text-xs text-gray-400 whitespace-nowrap">출처</span>
                 <span className="font-medium text-gray-800">{a.announcementType}</span>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-3 border-r border-gray-100">
-                <span className="text-xs text-gray-400 whitespace-nowrap">부처명</span>
-                <span className="font-medium text-gray-800">{a.department}</span>
               </div>
               <div className="flex items-center gap-2 px-4 py-3">
                 <span className="text-xs text-gray-400 whitespace-nowrap">공고기관명</span>

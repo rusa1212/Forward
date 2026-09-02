@@ -101,8 +101,19 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     if user is None or not _verify_password(body.pw, user.password_hash):
         raise AppError(401, "INVALID_CREDENTIALS", "사번 또는 비밀번호가 올바르지 않습니다.")
 
+    employee = db.get(Employee, user.emp_id)
+
     token = _create_token(str(user.id))
-    return {"success": True, "data": {"token": token, "id": str(user.id), "email": user.email}}
+    return {
+        "success": True,
+        "data": {
+            "token": token,
+            "id": str(user.id),
+            "email": user.email,
+            "name": employee.name,
+            "isAdmin": user.is_admin,
+        },
+    }
 
 
 @router.post("/logout")
@@ -133,3 +144,13 @@ def get_current_user(authorization: str | None = Header(None), db: Session = Dep
     if user is None:
         raise AppError(401, "UNAUTHORIZED", "존재하지 않는 사용자입니다.")
     return user
+
+
+def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
+    """관리자 전용 라우터(admin.py)에서 Depends(get_current_admin)로 사용.
+    get_current_user를 재사용하므로 토큰 없음/무효 토큰은 그쪽에서 401로 처리되고,
+    여기서는 "로그인은 했지만 관리자가 아님"만 403으로 추가한다.
+    """
+    if not current_user.is_admin:
+        raise AppError(403, "FORBIDDEN", "관리자만 접근할 수 있습니다.")
+    return current_user
