@@ -20,7 +20,7 @@ export default function LoginPage() {
         { empId, pw }
       )
       login(data.token, data.isAdmin, data.name)
-      navigate('/', { replace: true })
+      navigate(data.isAdmin ? '/admin' : '/', { replace: true })
     } catch (e) {
       setError(e instanceof ApiError ? e.message : '로그인 중 오류가 발생했습니다.')
     } finally {

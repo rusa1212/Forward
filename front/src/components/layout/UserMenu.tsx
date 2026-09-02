@@ -8,6 +8,7 @@ export default function UserMenu({ open, onToggle, onClose }: {
 }) {
   const navigate = useNavigate()
   const name = getName()
+  const admin = isAdmin()
 
   const handleLogout = () => {
     logout()
@@ -27,8 +28,10 @@ export default function UserMenu({ open, onToggle, onClose }: {
 
       {open && (
         <div className="absolute top-11 right-0 w-40 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden py-1">
-          <button onClick={() => { navigate('/mypage'); onClose() }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors">마이페이지</button>
-          {isAdmin() && (
+          {!admin && (
+            <button onClick={() => { navigate('/mypage'); onClose() }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors">마이페이지</button>
+          )}
+          {admin && (
             <button onClick={() => { navigate('/admin'); onClose() }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors">관리자 페이지</button>
           )}
           <div className="h-px bg-gray-100 mx-2" />
