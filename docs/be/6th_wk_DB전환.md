@@ -66,14 +66,15 @@ uvicorn app.main:app --reload --port 8000
 이후 스키마가 바뀌면 (팀원이 마이그레이션을 추가하면) pull 후 `alembic upgrade head` 한 줄로 동기화됩니다.
 마이그레이션 추가/적용/롤백 절차는 **`docs/be/alembic-마이그레이션.md`**.
 
-Docker를 쓰는 팀원은:
+Docker를 쓰는 팀원은 (권장 — 팀 전원 동일 환경):
 
 ```bash
-docker run -d --name forward-mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=forward \
-  -p 3306:3306 mysql:8 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
-# 컨테이너가 MYSQL_DATABASE=forward 를 만들어 주므로 위 1)의 create database는 생략,
-# 계정 grant 만 실행한 뒤 alembic upgrade head.
+cd back && docker compose up -d --wait   # back/docker-compose.yml — DB·계정 자동 생성, healthy까지 대기
+alembic upgrade head
 ```
+
+위 1)의 SQL은 전부 생략됩니다 (compose가 forward DB와 forward 계정을 자동 생성).
+처음이라면 **`docs/온보딩-MySQL과-Docker.md`** (1학년 눈높이 개념 설명 + 따라하기 + FAQ) 참고.
 
 ## 5. 데이터 이관
 
