@@ -1,0 +1,1086 @@
+{
+  "info": {
+    "_postman_id": "6d42b986-3944-4d01-ab17-a4faaf30a7c7",
+    "name": "Forward BE API",
+    "description": "공공 R&D 과제 공고 키워드 모니터링 서비스 - 백엔드 API 모음.\n\n사용법:\n1. 컬렉션 변수 baseUrl을 실제 서버 주소로 맞춰주세요 (기본값: http://localhost:8000/api/v1).\n2. Auth 폴더의 '로그인' 요청을 먼저 실행하세요. 응답으로 받은 token이 자동으로 컬렉션 변수 token에 저장되고, 로그인이 필요한 다른 요청들은 이 값을 Authorization 헤더에 자동으로 씁니다.\n3. 관리자 전용 요청(Admin 폴더, POST/GET /collect)은 관리자 계정으로 로그인해야 정상 동작합니다 (scripts/promote_admin.py로 최초 관리자 지정).\n\n각 요청의 설명(Description)에 성공/실패 응답 형태를 적어뒀습니다. 자세한 내용은 back/README.md의 '확인된 엔드포인트' 절 참고.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "description": "서버/DB 상태 확인",
+      "item": [
+        {
+          "name": "서버 상태 확인",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "서버가 떠있는지만 확인. 200 OK면 정상."
+          },
+          "response": []
+        },
+        {
+          "name": "DB 연결 확인",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/db",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "db"
+              ]
+            },
+            "description": "DB 연결 확인. {\"db\":\"connected\"}면 정상."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth (인증)",
+      "description": "회원가입/로그인/로그아웃. 로그인 요청이 token을 자동 저장함.",
+      "item": [
+        {
+          "name": "사원 인증 확인 (회원가입 1단계)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-employee",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "verify-employee"
+              ]
+            },
+            "description": "사번+이름이 사원 명부와 일치하는지 확인. 200: {success:true, data:{verified: true|false}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"empId\": \"20230001\",\n  \"name\": \"김민준\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "회원가입 (2단계)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
+            },
+            "description": "계정 생성. 서버가 사원 인증을 다시 검증함.\n실패: 400 EMPLOYEE_NOT_FOUND / 409 DUPLICATE_EMP_ID / 409 DUPLICATE_EMAIL",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"empId\": \"20230001\",\n  \"name\": \"김민준\",\n  \"email\": \"minjun@example.com\",\n  \"pw\": \"password1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "로그인",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "사번+비밀번호로 로그인, JWT 토큰 발급.\n성공(200): {success:true, data:{token, id, email, name, isAdmin}}\n실패(401 INVALID_CREDENTIALS): 사번/비밀번호 불일치\n\n이 요청의 Tests 탭 스크립트가 응답의 token을 컬렉션 변수 token에 자동 저장합니다.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"empId\": \"20230001\",\n  \"pw\": \"password1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    if (data && data.data && data.data.token) {",
+                  "        pm.collectionVariables.set('token', data.data.token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "로그아웃",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "상태 없는(stateless) JWT라 서버가 지울 게 없음. FE가 토큰만 버리면 끝.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Collect (수집, 관리자 전용)",
+      "description": "공공데이터포털 수집 트리거. 관리자 로그인 필요.",
+      "item": [
+        {
+          "name": "공고 수집 미리보기 (관리자)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/collect?bid_from=202601010000&bid_to=202601312359",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "collect"
+              ],
+              "query": [
+                {
+                  "key": "bid_from",
+                  "value": "202601010000"
+                },
+                {
+                  "key": "bid_to",
+                  "value": "202601312359"
+                }
+              ]
+            },
+            "description": "DB 저장 없이 3개 소스 수집 결과만 반환. 관리자 전용.\n401 UNAUTHORIZED(토큰 없음) / 403 FORBIDDEN(관리자 아님)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "공고 수집 + 저장 (관리자)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/collect?bid_from=202601010000&bid_to=202601312359",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "collect"
+              ],
+              "query": [
+                {
+                  "key": "bid_from",
+                  "value": "202601010000"
+                },
+                {
+                  "key": "bid_to",
+                  "value": "202601312359"
+                }
+              ]
+            },
+            "description": "수집 후 announcements 테이블에 upsert. 관리자 전용. 401/403 동일.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Announcements (공고 조회)",
+      "description": "저장된 공고 재조회. 로그인 불필요.",
+      "item": [
+        {
+          "name": "공고 목록",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/announcements?q=AI&statusLabel=접수중&sort=latest&page=1&page_size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "announcements"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "AI"
+                },
+                {
+                  "key": "statusLabel",
+                  "value": "접수중"
+                },
+                {
+                  "key": "sort",
+                  "value": "latest"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page_size",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "검색/필터/정렬/페이지네이션. 로그인 불필요."
+          },
+          "response": []
+        },
+        {
+          "name": "공고 상세",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/announcements/{{announcementId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "announcements",
+                "{{announcementId}}"
+              ]
+            },
+            "description": "없으면 404 ANNOUNCEMENT_NOT_FOUND. {{announcementId}}는 목록 조회로 받은 id로 바꿔서 사용."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Keywords (키워드)",
+      "description": "내 알림 키워드 CRUD. 로그인 필요.",
+      "item": [
+        {
+          "name": "내 키워드 목록",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/keywords",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "keywords"
+              ]
+            },
+            "description": "로그인 필요.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "키워드 등록",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/keywords",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "keywords"
+              ]
+            },
+            "description": "중복 등록 시 409 DUPLICATE_KEYWORD.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"keyword\": \"AI\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "키워드 삭제",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/keywords/{{keywordId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "keywords",
+                "{{keywordId}}"
+              ]
+            },
+            "description": "{{keywordId}}를 실제 키워드 id로 바꿔서 사용.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Saved Announcements (저장공고)",
+      "description": "공고 저장/취소/조회. 로그인 필요.",
+      "item": [
+        {
+          "name": "내가 저장한 공고 목록",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/saved-announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "saved-announcements"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "공고 저장",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/saved-announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "saved-announcements"
+              ]
+            },
+            "description": "이미 저장한 공고면 409 ALREADY_SAVED, 존재하지 않는 공고면 404 ANNOUNCEMENT_NOT_FOUND.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"announcementId\": \"{{announcementId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "저장 취소",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/saved-announcements/{{announcementId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "saved-announcements",
+                "{{announcementId}}"
+              ]
+            },
+            "description": "저장 안 한 공고면 404 SAVED_ANNOUNCEMENT_NOT_FOUND.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Me (마이페이지)",
+      "description": "내 정보 조회/수정, 비밀번호 변경. 로그인 필요.",
+      "item": [
+        {
+          "name": "내 정보 조회",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me"
+              ]
+            },
+            "description": "{success, data:{id, empId, name, department, email}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "내 정보 수정 (이메일 변경)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me"
+              ]
+            },
+            "description": "다른 계정이 쓰는 이메일이면 409 DUPLICATE_EMAIL.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"new-email@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "비밀번호 변경",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/me/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "change-password"
+              ]
+            },
+            "description": "현재 비밀번호 틀리면 401 INVALID_CREDENTIALS.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPw\": \"password1\",\n  \"newPw\": \"newpassword123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Notifications (알림)",
+      "description": "알림 목록/읽음 처리. 로그인 필요.",
+      "item": [
+        {
+          "name": "내 알림 목록",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications"
+              ]
+            },
+            "description": "{success, data:{unreadCount, notifications:[{id, notifyType, title, keyword, announcementId, isRead, createdAt}]}} 최신순 최대 50건.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "알림 1건 읽음 처리",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "{{notificationId}}",
+                "read"
+              ]
+            },
+            "description": "남의 알림이거나 없는 id면 404 NOTIFICATION_NOT_FOUND.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "알림 전체 읽음 처리",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/read-all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "read-all"
+              ]
+            },
+            "description": "내 알림 중 안읽은 것 전부 읽음 처리. AlertsDropdown '모두 읽음' 버튼용.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Dashboard (대시보드)",
+      "description": "집계 데이터. 로그인 필요.",
+      "item": [
+        {
+          "name": "대시보드 요약",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard",
+                "summary"
+              ]
+            },
+            "description": "{success, data:{counts:{matched,newToday,urgent,saved}, matched:[...], saved:[...]}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin (관리자)",
+      "description": "사원/가입자 관리. 관리자 로그인 필요.",
+      "item": [
+        {
+          "name": "사원 명부 전체 목록 (관리자)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "employees"
+              ]
+            },
+            "description": "가입 여부(joined) 포함.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "사원 등록 (관리자)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "employees"
+              ]
+            },
+            "description": "중복 사번이면 409 DUPLICATE_EMP_ID.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"empId\": \"20230099\",\n  \"name\": \"홍길동\",\n  \"department\": \"개발팀\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "사원 삭제 (관리자)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/employees/{{empId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "employees",
+                "{{empId}}"
+              ]
+            },
+            "description": "이미 가입한 사원이면 409 EMPLOYEE_ALREADY_JOINED.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "가입자(계정) 전체 목록 (관리자)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "users"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "가입자 계정 삭제 (관리자)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": "삭제하면 해당 계정 로그인 차단됨.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

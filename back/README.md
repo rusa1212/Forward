@@ -32,6 +32,8 @@ alembic/                 DB 마이그레이션 (스키마 정본). alembic/versi
 alembic.ini
 scripts/
   promote_admin.py        최초 관리자 지정용 1회성 스크립트
+postman/
+  Forward_BE_API.postman_collection.json   Postman 컬렉션 (전체 엔드포인트 요청 모음)
 requirements.txt
 .env.example
 dev-seed.sql             로컬 개발용 시드(데모 사원 1명) — 선택
@@ -110,6 +112,18 @@ docker compose up -d --wait     # --wait: DB가 healthy 될 때까지 대기 (�
 
 관리자 전용 API는 토큰 없으면 401, 로그인했지만 관리자가 아니면 403을 반환한다 (`app/api/v1/auth.py`의 `get_current_admin`). 최초 관리자는 `scripts/promote_admin.py <emp_id>`로 지정한다 (해당 사번으로 이미 회원가입까지 마친 계정이어야 함).
 - `GET /api/v1/dashboard/summary` (로그인 필요) → `{counts: {matched, newToday, urgent, saved}, matched: [...], saved: [...]}`. `matched`는 내 키워드가 제목에 포함된 공고(최신순 상위 10건), `newToday`는 그중 오늘 수집된 것, `urgent`는 그중 마감임박(`statusLabel`) 상태인 것.
+
+## Postman 문서화
+
+`back/postman/Forward_BE_API.postman_collection.json`에 전체 엔드포인트를 Postman 컬렉션으로 정리해뒀습니다 (마이페이지 `/me`, 알림 `/notifications` 등 이 문서 작성 시점 기준 아직 머지 전인 PR의 엔드포인트도 포함 — 해당 PR들이 머지되면 바로 맞습니다).
+
+사용법:
+1. Postman에서 File → Import → 이 JSON 파일 선택
+2. 컬렉션 변수 `baseUrl`을 서버 주소로 맞추기 (기본값 `http://localhost:8000/api/v1`)
+3. `Auth (인증)` 폴더의 "로그인" 요청을 먼저 실행 — 응답의 `token`이 컬렉션 변수 `token`에 자동 저장되고, 로그인이 필요한 다른 요청들이 이 값을 `Authorization: Bearer` 헤더로 자동으로 씀
+4. 관리자 전용 요청(`Admin`, `Collect`)은 관리자 계정으로 로그인해야 정상 동작 (`scripts/promote_admin.py`로 최초 관리자 지정)
+
+각 요청의 Description에 성공/실패 응답 형태와 에러 코드를 적어뒀습니다.
 
 ## 수집 대상 (공공데이터포털)
 
