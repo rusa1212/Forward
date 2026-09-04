@@ -128,6 +128,50 @@ class Keyword(Base):
     )
 
 
+class NotificationLog(Base):
+    """알림 이력 (5주차 우선순위 P1 "알림 저장 구조").
+
+    키워드 매칭/마감임박 알림이 실제로 발생했을 때 남기는 기록. 이 테이블에 쌓는 로직(자동화
+    파이프라인)은 별도 작업이고, 이 모델과 API는 저장/조회/읽음 처리만 담당한다.
+    같은 유저에게 같은 공고로 같은 유형의 알림이 중복 저장되지 않도록 UNIQUE 제약을 건다
+    (db-design.md 2.3절 NOTIFICATION_LOGS 참고).
+    """
+    __tablename__ = "notification_logs"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "announcement_id", "notify_type",
+            name="notification_logs_user_announcement_type_key",
+        ),
+        Index("idx_notification_logs_user_created", "user_id", "created_at"),
+        _MYSQL_TABLE_ARGS,
+    )
+
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=_uuid_str)
+    user_id: Mapped[str] = mapped_column(
+        CHAR(36),
+        ForeignKey("users.id", name="fk_notification_logs_user_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    announcement_id: Mapped[str | None] = mapped_column(
+        CHAR(36),
+        ForeignKey("announcements.id", name="fk_notification_logs_announcement_id", ondelete="CASCADE"),
+    )
+    keyword_id: Mapped[str | None] = mapped_column(
+        CHAR(36),
+        ForeignKey("keywords.id", name="fk_notification_logs_keyword_id", ondelete="SET NULL"),
+    )
+    notify_type: Mapped[str] = mapped_column(String(30), nullable=False)  # "신규매칭" | "마감임박"
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("0"))
+    # 이메일 발송 완료 시각. NULL이면 아직 이메일 발송 전(또는 미대상)이라는 뜻 —
+    # app/services/notifier.py가 이 값이 비어있는 알림만 골라 이메일로 보내고 채워 넣는다.
+    # is_read(화면에서 읽음)와는 별개 — 이메일은 안 보냈지만 화면에서 이미 읽었을 수도 있음.
+    emailed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
+    )
+
+
 class SavedAnnouncement(Base):
     """사용자가 저장(즐겨찾기)한 공고 (5주차 1차 작업 순서 12)."""
     __tablename__ = "saved_announcements"

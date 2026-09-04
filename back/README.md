@@ -11,13 +11,14 @@ app/
   core/
     config.py           .env 읽는 설정값 (Settings)
     errors.py            공통 오류 응답 형식 ({"success": false, "error": {...}})
-    scheduler.py         APScheduler — POST /collect 하루 1회 자동 실행
+    scheduler.py         APScheduler — 하루 1회(기본 06:00) 공고 수집 + 알림 생성 + 이메일 발송 자동 실행
   db/
     session.py           SQLAlchemy 세션 (Depends(get_db)). mysql일 때 세션 time_zone=UTC 고정
-    models.py             ORM 모델 5개 (employees/users/announcements/keywords/saved_announcements)
+    models.py             ORM 모델 6개 (employees/users/announcements/keywords/notification_logs/saved_announcements)
   services/
     collector.py          공공데이터포털 API 3종 호출 + 필드 정규화
     storage.py             수집 결과를 announcements 테이블에 upsert (INSERT ... ON DUPLICATE KEY UPDATE)
+    notifier.py             키워드 매칭 → notification_logs 알림 생성 + 미발송 알림 이메일 발송 (SMTP 설정 시)
   api/v1/
     router.py             라우터 모음
     health.py              헬스체크 (/health, /health/db)
@@ -28,6 +29,7 @@ app/
     saved_announcements.py   공고 저장/저장취소/조회 (로그인 필요)
     admin.py                 관리자 전용: 사원 명부 등록/삭제, 가입자 목록/삭제 (관리자만)
     dashboard.py              대시보드 집계: 오늘 신규/키워드 매칭/마감임박/저장공고 수+목록 (로그인 필요)
+    notifications.py          알림 목록 조회 + 읽음/전체읽음 처리 (로그인 필요, notification_logs 테이블)
 alembic/                 DB 마이그레이션 (스키마 정본). alembic/versions/*.py
 alembic.ini
 scripts/
@@ -114,6 +116,9 @@ docker compose up -d --wait     # --wait: DB가 healthy 될 때까지 대기 (�
 
 `GET/POST /api/v1/collect`도 같은 `get_current_admin`으로 보호한다 (외부 공공데이터포털 API 쿼터 소모 + POST는 DB 직접 upsert라 아무나 호출하면 안 됨). 매일 자동 수집(`core/scheduler.py`)은 이 HTTP 엔드포인트를 거치지 않고 서비스 함수를 직접 호출하므로 영향 없음.
 - `GET /api/v1/dashboard/summary` (로그인 필요) → `{counts: {matched, newToday, urgent, saved}, matched: [...], saved: [...]}`. `matched`는 내 키워드가 제목에 포함된 공고(최신순 상위 10건), `newToday`는 그중 오늘 수집된 것, `urgent`는 그중 마감임박(`statusLabel`) 상태인 것.
+- `GET /api/v1/notifications` (로그인 필요) → `{unreadCount, notifications: [{id, notifyType, title, keyword, announcementId, isRead, createdAt}, ...]}` (최신순 최대 50건). `notifyType`은 "신규매칭" | "마감임박". 이 테이블(`notification_logs`)에 실제로 알림을 쌓는 자동화 로직(수집→매칭→알림 생성, 이메일 발송)은 별도 작업이며 이번 범위는 저장된 알림의 조회/읽음 처리만 다룬다.
+- `POST /api/v1/notifications/{id}/read` (로그인 필요) → 알림 1건 읽음 처리 (남의 알림/없는 id는 404 `NOTIFICATION_NOT_FOUND`)
+- `POST /api/v1/notifications/read-all` (로그인 필요) → 내 알림 전체 읽음 처리 (FE `AlertsDropdown.tsx`의 "모두 읽음" 버튼용)
 
 ## Postman 문서화
 
@@ -135,6 +140,18 @@ docker compose up -d --wait     # --wait: DB가 healthy 될 때까지 대기 (�
 | `narajangteo` | 조달청 나라장터 입찰공고정보 | 연동 완료 |
 | `msit` | 과학기술정보통신부 사업공고 | 연동 완료 |
 | ~~`mss`~~ | 중소벤처기업부 사업공고 | 보류 (오퍼레이션명 미확인, 제외됨) |
+
+## 알림·이메일 발송 자동화 (5주차 우선순위 P1)
+
+매일 자동 수집(기본 06:00, `COLLECT_CRON_HOUR`/`COLLECT_CRON_MINUTE`) 직후 `app/core/scheduler.py`가 이어서 실행하는 순서:
+
+1. 공고 수집·저장 (기존)
+2. `app/services/notifier.py`의 `generate_keyword_match_notifications` — 모든 사용자의 키워드로 공고 제목을 매칭해서 `notification_logs`에 알림 적재. `신규매칭`(키워드 매칭되는 모든 공고) + `마감임박`(그중 announcements.py와 동일 기준으로 마감임박인 것). `UNIQUE(user_id, announcement_id, notify_type)` + `INSERT IGNORE`로 매일 전체를 다시 계산해도 중복 알림이 안 쌓임.
+3. `send_pending_notification_emails` — `emailed_at`이 비어있는 알림을 사용자별로 모아 이메일 1통으로 발송, 성공하면 `emailed_at` 채움.
+
+**이메일 발송은 SMTP 설정이 있어야 실제로 동작합니다.** `.env`의 `SMTP_HOST`가 비어있으면(기본값) 이메일 발송 없이 로그만 남기고 넘어갑니다 — 알림 저장(2번)까지는 SMTP 설정 여부와 무관하게 정상 동작합니다. 어떤 이메일 서비스(SMTP 릴레이/Gmail/SendGrid 등)를 쓸지는 아직 팀에서 결정 전이라, 결정되면 `.env`에 `SMTP_HOST`/`SMTP_PORT`/`SMTP_USERNAME`/`SMTP_PASSWORD`/`SMTP_FROM_EMAIL`/`SMTP_USE_TLS` 값만 채우면 코드 수정 없이 발송이 시작됩니다 (`.env.example` 참고). 로컬 디버그 SMTP 서버(`python -m smtpd -c DebuggingServer -n localhost:1025`)로 실제 발송 경로까지 테스트 완료했습니다.
+
+"저장한 공고 마감임박 알림" (사용자가 마이페이지에서 D-7/D-3/D-1 중 선택하는 것, `ALERT_SETTINGS`)은 이번 범위가 아니고 별도 작업입니다 — 이번 자동화는 키워드 매칭 기반 알림만 다룹니다.
 
 ## RLS 없음 — 주의
 
