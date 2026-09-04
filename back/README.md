@@ -46,16 +46,24 @@ python -m venv .venv
 
 copy .env.example .env   # DATA_GO_KR_API_KEY, DATABASE_URL, JWT_SECRET 채우기
 
-# DB 준비 (MySQL 8 / MariaDB 10.4+)
-#   1) 빈 데이터베이스 + 계정 생성 (아래 SQL을 mysql -u root -p 로 1회 실행)
+# DB 준비 — 방법 A (권장): Docker
+#   Docker Desktop 설치 후 아래 한 줄. forward DB/계정까지 자동 생성됨.
+#   처음이면 docs/온보딩-MySQL과-Docker.md (개념 설명 + 따라하기 + FAQ) 참고.
+docker compose up -d --wait     # --wait: DB가 healthy 될 때까지 대기 (첫 실행 수십 초)
+#
+# DB 준비 — 방법 B: MySQL 직접 설치 (MySQL 8 / MariaDB 10.4+)
+#   빈 데이터베이스 + 계정 생성 (아래 SQL을 mysql -u root -p 로 1회 실행)
 #        create database forward default character set utf8mb4 collate utf8mb4_unicode_ci;
 #        create user if not exists 'forward'@'localhost' identified by 'forward';
 #        grant all privileges on forward.* to 'forward'@'localhost';  -- 로컬은 마이그레이션까지 이 계정으로
 #        flush privileges;
-#   2) 스키마 적용
+#
+# 스키마 적용 (A/B 공통)
 .venv\Scripts\alembic upgrade head
-#   3) (선택) 데모 사원 시드
-#        mysql -u root -p forward < dev-seed.sql
+# (선택) 데모 사원 시드 — PowerShell은 '<' 리다이렉션이 안 되므로 cmd /c "..."로 감싸서 실행
+#   Docker(mac/cmd): docker exec -i forward-mysql mysql -uroot -proot --default-character-set=utf8mb4 forward < dev-seed.sql
+#   Docker(PowerShell): cmd /c "docker exec -i forward-mysql mysql -uroot -proot --default-character-set=utf8mb4 forward < dev-seed.sql"
+#   직접 설치: mysql -u root -p --default-character-set=utf8mb4 forward < dev-seed.sql
 
 .venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
 ```

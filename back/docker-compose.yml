@@ -1,0 +1,46 @@
+# Forward 로컬 개발용 MySQL — Docker Compose
+# 처음이라면 docs/온보딩-MySQL과-Docker.md 부터 읽어주세요 (1학년 눈높이 설명 + 따라하기).
+#
+# 요약 사용법 (이 파일이 있는 back/ 폴더에서):
+#   docker compose up -d       DB 켜기 (첫 실행은 이미지 다운로드 때문에 몇 분 걸림)
+#   docker compose ps          상태 확인 (STATUS가 healthy면 준비 완료)
+#   docker compose logs db     문제 생겼을 때 로그 보기
+#   docker compose down        DB 끄기 (데이터는 남음)
+#   docker compose down -v     DB 끄기 + 데이터까지 삭제 (완전 초기화하고 싶을 때만!)
+#
+# DB가 켜진 뒤에는 평소처럼: alembic upgrade head → (선택) dev-seed.sql → uvicorn 실행
+
+services:
+  db:
+    image: mysql:8.4
+    container_name: forward-mysql
+    restart: unless-stopped
+    # 한글 깨짐 방지: 서버 기본 문자셋을 utf8mb4로 고정 (models.py의 테이블 설정과 동일)
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      # 아래 세 값 덕분에 첫 실행 때 forward DB와 forward 계정(해당 DB 전체 권한)이 자동 생성됨
+      # → README의 "빈 DB + 계정 생성" SQL을 직접 칠 필요가 없음
+      MYSQL_DATABASE: forward
+      MYSQL_USER: forward
+      MYSQL_PASSWORD: forward
+    ports:
+      # 왼쪽(3306) = 내 컴퓨터에서 접속할 포트, 오른쪽(3306) = 컨테이너 안 MySQL 포트
+      # 내 컴퓨터에 MySQL이 이미 설치돼 있어 3306이 사용 중이면 "3307:3306"으로 바꾸고,
+      # .env의 DATABASE_URL 포트도 3307로 맞추세요.
+      - "3306:3306"
+    volumes:
+      # 데이터를 컨테이너 밖(도커 볼륨)에 보관 — 컨테이너를 지워도 데이터가 남는 이유
+      - forward-mysql-data:/var/lib/mysql
+    healthcheck:
+      # 자격증명 불필요 — ping은 서버가 떠 있으면 성공 (비밀번호를 넣으면 체크마다 경고 로그만 쌓임)
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  forward-mysql-data:
