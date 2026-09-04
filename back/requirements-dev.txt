@@ -1,0 +1,4 @@
+# 테스트 전용 의존성. 배포 서버에는 필요 없음 — 개발 환경에서만 설치.
+#   .venv\Scripts\pip install -r requirements-dev.txt
+-r requirements.txt
+pytest

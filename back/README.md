@@ -156,3 +156,22 @@ docker compose up -d --wait     # --wait: DB가 healthy 될 때까지 대기 (�
 ## RLS 없음 — 주의
 
 MySQL/MariaDB에는 Supabase의 RLS가 없습니다. 사용자별 데이터 접근 제어는 **API 코드의 `user_id` 필터에 전적으로 의존**합니다 (keywords/saved_announcements 라우터는 모든 조회·삭제에 `user_id` 조건, 타인 소유는 404). 개인화 테이블 쿼리를 추가할 때 `user_id` 조건 누락이 곧 데이터 유출이므로 리뷰 필수 체크 항목입니다. (`docs/be/6th_wk_DB전환.md` 2절)
+
+## 로그 (5주차 우선순위 - 예외/로그 보강)
+
+`app/core/logging_config.py`의 `setup_logging()`을 `main.py`가 앱 생성 전에 호출합니다. 이전에는 `logging.basicConfig()`를 아무도 호출하지 않아서 `scheduler.py`/`notifier.py`의 `logger.info(...)` 로그(자동 수집 결과, 알림 생성/발송 개수 등)가 실제로는 콘솔에 전혀 안 찍히고 있었습니다 — 이제 정상적으로 보입니다.
+
+또한 `app/core/errors.py`의 처리 안 된 예외(500) 핸들러가 이제 `logger.exception(...)`으로 전체 스택트레이스를 남깁니다. 예전에는 500 에러가 나도 서버 콘솔에 아무 흔적이 없어서 원인 추적이 불가능했습니다.
+
+## 테스트 (5주차 우선순위 - API 테스트 보강)
+
+`back/tests/`에 pytest 기반 API 테스트가 있습니다 (health/auth/keywords/saved-announcements/admin/dashboard, 총 34개 케이스 — 정상 케이스뿐 아니라 401/403/404/409 같은 실패 케이스와, 다른 사용자의 데이터에 접근 못 하는지(RLS 없음에 대한 회귀 방지)도 검증).
+
+```bash
+.venv\Scripts\pip install -r requirements-dev.txt   # pytest 설치 (최초 1회)
+.venv\Scripts\python -m pytest tests\ -v
+```
+
+**주의**: 이 테스트는 `.env`의 `DATABASE_URL`이 가리키는 DB의 `users`/`employees`/`announcements`/`keywords`/`saved_announcements` 테이블 내용을 각 테스트 전에 전부 지웁니다(`tests/conftest.py`의 `clean_db`). **로컬 개발용 DB에서만 실행하세요 — 운영/공유 DB에 대고 실행하면 안 됩니다.**
+
+`/collect`(공공데이터포털 실제 API 호출)는 외부 서비스 의존성 때문에 이번 자동화 테스트 범위에서 제외했습니다 — 필요하면 이후 mock 처리해서 추가할 수 있습니다.
