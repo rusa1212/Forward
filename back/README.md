@@ -26,6 +26,7 @@ app/
     auth.py                 사원 인증 + 회원가입/로그인/로그아웃 (JWT)
     keywords.py             키워드 CRUD (로그인 필요)
     saved_announcements.py   공고 저장/저장취소/조회 (로그인 필요)
+    me.py                     마이페이지: 내 정보 조회/수정, 비밀번호 변경 (로그인 필요)
     admin.py                 관리자 전용: 사원 명부 등록/삭제, 가입자 목록/삭제 (관리자만)
     dashboard.py              대시보드 집계: 오늘 신규/키워드 매칭/마감임박/저장공고 수+목록 (로그인 필요)
 alembic/                 DB 마이그레이션 (스키마 정본). alembic/versions/*.py
@@ -88,8 +89,8 @@ docker compose up -d --wait     # --wait: DB가 healthy 될 때까지 대기 (�
 
 - `GET /api/v1/health` → 서버 상태
 - `GET /api/v1/health/db` → DB 연결 확인
-- `GET /api/v1/collect` (관리자 전용) → 3개 소스(K-Startup, 나라장터, 과기정통부) 수집 미리보기 (DB 저장 안 함)
-- `POST /api/v1/collect` (관리자 전용) → 수집 후 `announcements` 테이블에 upsert (`source`+`external_id` 기준 중복 방지)
+- `GET /api/v1/collect` → 3개 소스(K-Startup, 나라장터, 과기정통부) 수집 미리보기 (DB 저장 안 함)
+- `POST /api/v1/collect` → 수집 후 `announcements` 테이블에 upsert (`source`+`external_id` 기준 중복 방지)
 - `GET /api/v1/announcements` → 공고 목록 (쿼리: `q`(제목 검색), `status`, `statusLabel`(접수중/접수예정/마감임박/마감), `department`, `source`, `sort`(latest/deadline/title), `page`, `page_size`)
 - `GET /api/v1/announcements/{id}` → 공고 상세 (없으면 404 `ANNOUNCEMENT_NOT_FOUND`)
 - `POST /api/v1/auth/verify-employee` → `{empId, name}`이 사원 명부와 일치하는지 확인 (회원가입 1단계)
@@ -109,9 +110,10 @@ docker compose up -d --wait     # --wait: DB가 healthy 될 때까지 대기 (�
 - `DELETE /api/v1/admin/users/{userId}` (관리자 전용) → 가입자 계정 삭제 (로그인 차단)
 
 관리자 전용 API는 토큰 없으면 401, 로그인했지만 관리자가 아니면 403을 반환한다 (`app/api/v1/auth.py`의 `get_current_admin`). 최초 관리자는 `scripts/promote_admin.py <emp_id>`로 지정한다 (해당 사번으로 이미 회원가입까지 마친 계정이어야 함).
-
-`GET/POST /api/v1/collect`도 같은 `get_current_admin`으로 보호한다 (외부 공공데이터포털 API 쿼터 소모 + POST는 DB 직접 upsert라 아무나 호출하면 안 됨). 매일 자동 수집(`core/scheduler.py`)은 이 HTTP 엔드포인트를 거치지 않고 서비스 함수를 직접 호출하므로 영향 없음.
 - `GET /api/v1/dashboard/summary` (로그인 필요) → `{counts: {matched, newToday, urgent, saved}, matched: [...], saved: [...]}`. `matched`는 내 키워드가 제목에 포함된 공고(최신순 상위 10건), `newToday`는 그중 오늘 수집된 것, `urgent`는 그중 마감임박(`statusLabel`) 상태인 것.
+- `GET /api/v1/me` (로그인 필요) → 내 정보(`empId`, `name`, `department`, `email`) 조회. 이름/부서는 `employees` 명부 기준
+- `PATCH /api/v1/me` (로그인 필요) → `{email}`로 이메일 변경 (중복 시 409 `DUPLICATE_EMAIL`). 이름/연락처/아이디는 현재 스키마에 없어 이번 범위 밖
+- `POST /api/v1/me/change-password` (로그인 필요) → `{currentPw, newPw}`로 비밀번호 변경 (현재 비밀번호 불일치 시 401 `INVALID_CREDENTIALS`)
 
 ## 수집 대상 (공공데이터포털)
 
