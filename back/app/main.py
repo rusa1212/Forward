@@ -6,7 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.errors import register_error_handlers
+from app.core.logging_config import setup_logging
 from app.core.scheduler import start_scheduler, stop_scheduler
+
+setup_logging()
 
 
 @asynccontextmanager

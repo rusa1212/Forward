@@ -11,13 +11,14 @@ app/
   core/
     config.py           .env 읽는 설정값 (Settings)
     errors.py            공통 오류 응답 형식 ({"success": false, "error": {...}})
-    scheduler.py         APScheduler — POST /collect 하루 1회 자동 실행
+    scheduler.py         APScheduler — 하루 1회(기본 06:00) 공고 수집 + 알림 생성 + 이메일 발송 자동 실행
   db/
     session.py           SQLAlchemy 세션 (Depends(get_db)). mysql일 때 세션 time_zone=UTC 고정
-    models.py             ORM 모델 5개 (employees/users/announcements/keywords/saved_announcements)
+    models.py             ORM 모델 6개 (employees/users/announcements/keywords/notification_logs/saved_announcements)
   services/
     collector.py          공공데이터포털 API 3종 호출 + 필드 정규화
     storage.py             수집 결과를 announcements 테이블에 upsert (INSERT ... ON DUPLICATE KEY UPDATE)
+    notifier.py             키워드 매칭 → notification_logs 알림 생성 + 미발송 알림 이메일 발송 (SMTP 설정 시)
   api/v1/
     router.py             라우터 모음
     health.py              헬스체크 (/health, /health/db)
@@ -29,10 +30,13 @@ app/
     me.py                     마이페이지: 내 정보 조회/수정, 비밀번호 변경 (로그인 필요)
     admin.py                 관리자 전용: 사원 명부 등록/삭제, 가입자 목록/삭제 (관리자만)
     dashboard.py              대시보드 집계: 오늘 신규/키워드 매칭/마감임박/저장공고 수+목록 (로그인 필요)
+    notifications.py          알림 목록 조회 + 읽음/전체읽음 처리 (로그인 필요, notification_logs 테이블)
 alembic/                 DB 마이그레이션 (스키마 정본). alembic/versions/*.py
 alembic.ini
 scripts/
   promote_admin.py        최초 관리자 지정용 1회성 스크립트
+postman/
+  Forward_BE_API.postman_collection.json   Postman 컬렉션 (전체 엔드포인트 요청 모음)
 requirements.txt
 .env.example
 dev-seed.sql             로컬 개발용 시드(데모 사원 1명) — 선택
@@ -114,6 +118,21 @@ docker compose up -d --wait     # --wait: DB가 healthy 될 때까지 대기 (�
 - `GET /api/v1/me` (로그인 필요) → 내 정보(`empId`, `name`, `department`, `email`) 조회. 이름/부서는 `employees` 명부 기준
 - `PATCH /api/v1/me` (로그인 필요) → `{email}`로 이메일 변경 (중복 시 409 `DUPLICATE_EMAIL`). 이름/연락처/아이디는 현재 스키마에 없어 이번 범위 밖
 - `POST /api/v1/me/change-password` (로그인 필요) → `{currentPw, newPw}`로 비밀번호 변경 (현재 비밀번호 불일치 시 401 `INVALID_CREDENTIALS`)
+- `GET /api/v1/notifications` (로그인 필요) → `{unreadCount, notifications: [{id, notifyType, title, keyword, announcementId, isRead, createdAt}, ...]}` (최신순 최대 50건). `notifyType`은 "신규매칭" | "마감임박". 이 테이블(`notification_logs`)에 실제로 알림을 쌓는 자동화 로직(수집→매칭→알림 생성, 이메일 발송)은 별도 작업이며 이번 범위는 저장된 알림의 조회/읽음 처리만 다룬다.
+- `POST /api/v1/notifications/{id}/read` (로그인 필요) → 알림 1건 읽음 처리 (남의 알림/없는 id는 404 `NOTIFICATION_NOT_FOUND`)
+- `POST /api/v1/notifications/read-all` (로그인 필요) → 내 알림 전체 읽음 처리 (FE `AlertsDropdown.tsx`의 "모두 읽음" 버튼용)
+
+## Postman 문서화
+
+`back/postman/Forward_BE_API.postman_collection.json`에 전체 엔드포인트를 Postman 컬렉션으로 정리해뒀습니다 (마이페이지 `/me`, 알림 `/notifications` 등 이 문서 작성 시점 기준 아직 머지 전인 PR의 엔드포인트도 포함 — 해당 PR들이 머지되면 바로 맞습니다).
+
+사용법:
+1. Postman에서 File → Import → 이 JSON 파일 선택
+2. 컬렉션 변수 `baseUrl`을 서버 주소로 맞추기 (기본값 `http://localhost:8000/api/v1`)
+3. `Auth (인증)` 폴더의 "로그인" 요청을 먼저 실행 — 응답의 `token`이 컬렉션 변수 `token`에 자동 저장되고, 로그인이 필요한 다른 요청들이 이 값을 `Authorization: Bearer` 헤더로 자동으로 씀
+4. 관리자 전용 요청(`Admin`, `Collect`)은 관리자 계정으로 로그인해야 정상 동작 (`scripts/promote_admin.py`로 최초 관리자 지정)
+
+각 요청의 Description에 성공/실패 응답 형태와 에러 코드를 적어뒀습니다.
 
 ## 수집 대상 (공공데이터포털)
 
@@ -124,6 +143,37 @@ docker compose up -d --wait     # --wait: DB가 healthy 될 때까지 대기 (�
 | `msit` | 과학기술정보통신부 사업공고 | 연동 완료 |
 | ~~`mss`~~ | 중소벤처기업부 사업공고 | 보류 (오퍼레이션명 미확인, 제외됨) |
 
+## 알림·이메일 발송 자동화 (5주차 우선순위 P1)
+
+매일 자동 수집(기본 06:00, `COLLECT_CRON_HOUR`/`COLLECT_CRON_MINUTE`) 직후 `app/core/scheduler.py`가 이어서 실행하는 순서:
+
+1. 공고 수집·저장 (기존)
+2. `app/services/notifier.py`의 `generate_keyword_match_notifications` — 모든 사용자의 키워드로 공고 제목을 매칭해서 `notification_logs`에 알림 적재. `신규매칭`(키워드 매칭되는 모든 공고) + `마감임박`(그중 announcements.py와 동일 기준으로 마감임박인 것). `UNIQUE(user_id, announcement_id, notify_type)` + `INSERT IGNORE`로 매일 전체를 다시 계산해도 중복 알림이 안 쌓임.
+3. `send_pending_notification_emails` — `emailed_at`이 비어있는 알림을 사용자별로 모아 이메일 1통으로 발송, 성공하면 `emailed_at` 채움.
+
+**이메일 발송은 SMTP 설정이 있어야 실제로 동작합니다.** `.env`의 `SMTP_HOST`가 비어있으면(기본값) 이메일 발송 없이 로그만 남기고 넘어갑니다 — 알림 저장(2번)까지는 SMTP 설정 여부와 무관하게 정상 동작합니다. 어떤 이메일 서비스(SMTP 릴레이/Gmail/SendGrid 등)를 쓸지는 아직 팀에서 결정 전이라, 결정되면 `.env`에 `SMTP_HOST`/`SMTP_PORT`/`SMTP_USERNAME`/`SMTP_PASSWORD`/`SMTP_FROM_EMAIL`/`SMTP_USE_TLS` 값만 채우면 코드 수정 없이 발송이 시작됩니다 (`.env.example` 참고). 로컬 디버그 SMTP 서버(`python -m smtpd -c DebuggingServer -n localhost:1025`)로 실제 발송 경로까지 테스트 완료했습니다.
+
+"저장한 공고 마감임박 알림" (사용자가 마이페이지에서 D-7/D-3/D-1 중 선택하는 것, `ALERT_SETTINGS`)은 이번 범위가 아니고 별도 작업입니다 — 이번 자동화는 키워드 매칭 기반 알림만 다룹니다.
+
 ## RLS 없음 — 주의
 
 MySQL/MariaDB에는 Supabase의 RLS가 없습니다. 사용자별 데이터 접근 제어는 **API 코드의 `user_id` 필터에 전적으로 의존**합니다 (keywords/saved_announcements 라우터는 모든 조회·삭제에 `user_id` 조건, 타인 소유는 404). 개인화 테이블 쿼리를 추가할 때 `user_id` 조건 누락이 곧 데이터 유출이므로 리뷰 필수 체크 항목입니다. (`docs/be/6th_wk_DB전환.md` 2절)
+
+## 로그 (5주차 우선순위 - 예외/로그 보강)
+
+`app/core/logging_config.py`의 `setup_logging()`을 `main.py`가 앱 생성 전에 호출합니다. 이전에는 `logging.basicConfig()`를 아무도 호출하지 않아서 `scheduler.py`/`notifier.py`의 `logger.info(...)` 로그(자동 수집 결과, 알림 생성/발송 개수 등)가 실제로는 콘솔에 전혀 안 찍히고 있었습니다 — 이제 정상적으로 보입니다.
+
+또한 `app/core/errors.py`의 처리 안 된 예외(500) 핸들러가 이제 `logger.exception(...)`으로 전체 스택트레이스를 남깁니다. 예전에는 500 에러가 나도 서버 콘솔에 아무 흔적이 없어서 원인 추적이 불가능했습니다.
+
+## 테스트 (5주차 우선순위 - API 테스트 보강)
+
+`back/tests/`에 pytest 기반 API 테스트가 있습니다 (health/auth/keywords/saved-announcements/admin/dashboard, 총 34개 케이스 — 정상 케이스뿐 아니라 401/403/404/409 같은 실패 케이스와, 다른 사용자의 데이터에 접근 못 하는지(RLS 없음에 대한 회귀 방지)도 검증).
+
+```bash
+.venv\Scripts\pip install -r requirements-dev.txt   # pytest 설치 (최초 1회)
+.venv\Scripts\python -m pytest tests\ -v
+```
+
+**주의**: 이 테스트는 `.env`의 `DATABASE_URL`이 가리키는 DB의 `users`/`employees`/`announcements`/`keywords`/`saved_announcements` 테이블 내용을 각 테스트 전에 전부 지웁니다(`tests/conftest.py`의 `clean_db`). **로컬 개발용 DB에서만 실행하세요 — 운영/공유 DB에 대고 실행하면 안 됩니다.**
+
+`/collect`(공공데이터포털 실제 API 호출)는 외부 서비스 의존성 때문에 이번 자동화 테스트 범위에서 제외했습니다 — 필요하면 이후 mock 처리해서 추가할 수 있습니다.
