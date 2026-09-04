@@ -7,6 +7,7 @@ from apscheduler.triggers.cron import CronTrigger
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.services.collector import collect_all, today_bid_date_range
+from app.services.notifier import generate_keyword_match_notifications, send_pending_notification_emails
 from app.services.storage import save_announcements
 
 logger = logging.getLogger("app.scheduler")
@@ -22,11 +23,17 @@ async def run_daily_collect() -> None:
     db = SessionLocal()
     try:
         saved = save_announcements(db, all_items)
+        # 수집 직후 키워드 매칭 → 알림 생성 → (SMTP 설정돼있으면) 이메일 발송까지 이어서 실행
+        notified = generate_keyword_match_notifications(db)
+        emailed = send_pending_notification_emails(db)
     finally:
         db.close()
 
     counts = {source: len(items) for source, items in result.items()}
-    logger.info("daily collect done: fetched=%s saved=%d", counts, saved)
+    logger.info(
+        "daily collect done: fetched=%s saved=%d notified=%d emailed=%d",
+        counts, saved, notified, emailed,
+    )
 
 
 def start_scheduler() -> None:

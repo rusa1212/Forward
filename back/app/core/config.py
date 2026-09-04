@@ -25,5 +25,15 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "change-me-in-env"
     JWT_EXPIRE_HOURS: int = 24
 
+    # 알림 이메일 발송용 SMTP (app/services/notifier.py). SMTP_HOST가 비어있으면(기본값)
+    # 이메일 발송 없이 알림 저장만 하고 넘어간다 — 어떤 이메일 서비스를 쓸지 아직 팀 결정 전이라
+    # 안전한 기본값으로 꺼둔 상태. 결정되면 .env에 값만 채우면 됨(코드 수정 불필요).
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_USE_TLS: bool = True
+
 
 settings = Settings()

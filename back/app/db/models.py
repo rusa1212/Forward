@@ -163,6 +163,10 @@ class NotificationLog(Base):
     notify_type: Mapped[str] = mapped_column(String(30), nullable=False)  # "신규매칭" | "마감임박"
     title: Mapped[str] = mapped_column(Text, nullable=False)
     is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("0"))
+    # 이메일 발송 완료 시각. NULL이면 아직 이메일 발송 전(또는 미대상)이라는 뜻 —
+    # app/services/notifier.py가 이 값이 비어있는 알림만 골라 이메일로 보내고 채워 넣는다.
+    # is_read(화면에서 읽음)와는 별개 — 이메일은 안 보냈지만 화면에서 이미 읽었을 수도 있음.
+    emailed_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
     )
