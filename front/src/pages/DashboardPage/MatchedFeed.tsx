@@ -4,8 +4,10 @@ import DDayBadge from '@/components/common/DDayBadge'
 import { getKeywordColor, matchKeywords } from '@/lib/keywordMatch'
 import type { Announcement } from '@/types'
 
-export default function MatchedFeed({ matchedAds, newTodayCount, keywordNames, onOpenDetail }: {
+export default function MatchedFeed({ matchedAds, matchedCount, newTodayCount, keywordNames, onOpenDetail }: {
   matchedAds: Announcement[]
+  /** 실제 매칭 총 건수. matchedAds는 BE가 최근 몇 건만 잘라서 내려주므로 개수 표시는 이 값을 써야 한다. */
+  matchedCount: number
   newTodayCount: number
   keywordNames: string[]
   onOpenDetail: (id: string) => void
@@ -60,8 +62,8 @@ export default function MatchedFeed({ matchedAds, newTodayCount, keywordNames, o
         })}
       </div>
       <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50">
-        <button onClick={() => navigate('/search')} className="text-xs text-[#457b9d] hover:underline font-medium">
-          전체 {matchedAds.length}건 보기 →
+        <button onClick={() => navigate('/search?matched=1')} className="text-xs text-[#457b9d] hover:underline font-medium">
+          전체 {matchedCount}건 보기 →
         </button>
       </div>
     </div>

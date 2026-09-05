@@ -87,7 +87,7 @@ export default function DashboardPage() {
             )}
 
             <div className="grid grid-cols-2 gap-6">
-              <MatchedFeed matchedAds={matched} newTodayCount={counts.newToday} keywordNames={keywordNames} onOpenDetail={openDetail} />
+              <MatchedFeed matchedAds={matched} matchedCount={counts.matched} newTodayCount={counts.newToday} keywordNames={keywordNames} onOpenDetail={openDetail} />
               <SavedList favoriteList={saved} onOpenDetail={openDetail} />
             </div>
           </>
