@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { listAnnouncements } from '@/lib/announcements'
 import { SORT_OPTIONS, STATUS_TYPES } from '@/constants'
 import { useFavoritesContext } from '@/contexts/FavoritesContext'
@@ -14,6 +15,13 @@ export default function SearchPage() {
   const { favorites } = useFavoritesContext()
   const { keywords } = useKeywordsContext()
   const { openDetail } = useDetailModal()
+  const [searchParams] = useSearchParams()
+
+  // 대시보드 "매칭된 공고 전체보기"(?matched=1)로 들어온 경우 — 내 키워드 전체를
+  // OR로 매칭한 결과를 보여준다. 진입 시 한 번만 확인하면 되고, 이후엔 화면 안의
+  // "검색으로 전환" 버튼으로만 끈다(URL을 계속 동기화하진 않음 — 다른 필터들과 동일).
+  const [matchedMode, setMatchedMode] = useState(() => searchParams.get('matched') === '1')
+
   const [keyword, setKeyword] = useState('')
   const [query, setQuery] = useState('')
   const [selectedStatus, setSelectedStatus] = useState<'전체' | StatusType>('전체')
@@ -26,12 +34,15 @@ export default function SearchPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [reloadTick, setReloadTick] = useState(0)
 
+  const keywordNames = keywords.map(k => k.name)
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setErrorMsg('')
     listAnnouncements({
-      q: query || undefined,
+      q: matchedMode ? undefined : (query || undefined),
+      keywords: matchedMode ? keywordNames : undefined,
       statusLabel: selectedStatus === '전체' ? undefined : selectedStatus,
       sort,
       page: currentPage,
@@ -47,16 +58,24 @@ export default function SearchPage() {
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [query, selectedStatus, sort, currentPage, reloadTick])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchedMode, query, selectedStatus, sort, currentPage, reloadTick])
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const runSearch = () => {
+    setMatchedMode(false)
     setQuery(keyword.trim())
     setCurrentPage(1)
   }
 
+  const exitMatchedMode = () => {
+    setMatchedMode(false)
+    setCurrentPage(1)
+  }
+
   const resetFilters = () => {
+    setMatchedMode(false)
     setKeyword('')
     setQuery('')
     setSelectedStatus('전체')
@@ -83,6 +102,17 @@ export default function SearchPage() {
         <p className="text-xs font-semibold text-[#457b9d] uppercase tracking-widest mb-2">공고 탐색</p>
         <h1 className="text-xl font-bold text-gray-800 mb-1">관심 있는 공고를 직접 찾아보세요</h1>
         <p className="text-sm text-gray-500 mb-6">키워드에 등록하지 않은 새로운 분야도 자유롭게 탐색할 수 있습니다.</p>
+
+        {matchedMode && (
+          <div className="mb-4 flex items-center gap-2 bg-white/70 border border-[#457b9d]/30 rounded-2xl px-4 py-2.5 max-w-2xl">
+            <span className="text-xs text-gray-600">
+              내 키워드 <strong className="text-[#1d3557]">{keywordNames.join(', ') || '없음'}</strong>에 매칭된 공고를 보고 있습니다
+            </span>
+            <button onClick={exitMatchedMode} className="ml-auto text-xs text-[#457b9d] hover:underline font-medium flex-shrink-0">
+              전체 검색으로 전환
+            </button>
+          </div>
+        )}
 
         <div className="flex gap-3 max-w-2xl">
           <div className="relative flex-1">
@@ -112,7 +142,7 @@ export default function SearchPage() {
         </div>
 
         {/* Quick suggest chips — shown before search */}
-        {!hasSearched && (
+        {!matchedMode && !hasSearched && (
           <div className="mt-4 flex items-center gap-2 flex-wrap">
             <span className="text-xs text-gray-400">추천 탐색어</span>
             {['바이오', '반도체', '교통', '물류', '교육', '탄소중립'].map(s => (
@@ -130,7 +160,11 @@ export default function SearchPage() {
           <div className="px-5 py-3.5 border-b border-gray-100">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
-                {hasSearched ? (
+                {matchedMode ? (
+                  <span className="text-sm text-gray-600">
+                    키워드 매칭 결과 <strong className="text-gray-800">{total}</strong>건
+                  </span>
+                ) : hasSearched ? (
                   <>
                     <span className="text-sm text-gray-600">
                       <strong className="text-gray-800">"{query}"</strong> 검색 결과 <strong className="text-gray-800">{total}</strong>건
@@ -190,7 +224,9 @@ export default function SearchPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
-            {hasSearched ? (
+            {matchedMode ? (
+              <p className="text-gray-500 text-sm font-medium">등록된 키워드에 매칭되는 공고가 없습니다.</p>
+            ) : hasSearched ? (
               <>
                 <p className="text-gray-500 text-sm font-medium">"{query}"에 대한 결과가 없습니다.</p>
                 <p className="text-gray-400 text-xs mt-1">다른 키워드로 다시 검색해보세요.</p>
