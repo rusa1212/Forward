@@ -1,17 +1,40 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Toggle from '@/components/common/Toggle'
+import { useAlertSettings } from '@/hooks/useAlertSettings'
 import { useKeywordsContext } from '@/contexts/KeywordsContext'
 import type { MyTab } from '@/types'
 
 export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }) {
   const { keywords, toggleAlert } = useKeywordsContext()
+  const { settings, error: loadError, pending, save } = useAlertSettings()
   const [savedMsg, setSavedMsg] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [alertFreq, setAlertFreq] = useState<'daily' | 'weekly'>('daily')
   const [favDashboard, setFavDashboard] = useState(true)
   const [favEmail, setFavEmail] = useState(false)
   const [favDays, setFavDays] = useState<7 | 3 | 1>(7)
 
-  const handleSave = () => {
+  // 조회가 끝나면 폼 초기값을 서버 값으로 맞춘다
+  useEffect(() => {
+    if (!settings) return
+    setAlertFreq(settings.emailFrequency)
+    setFavDays(settings.deadlineAlertDays)
+    setFavDashboard(settings.deadlineDashboardAlert)
+    setFavEmail(settings.deadlineEmailAlert)
+  }, [settings])
+
+  const handleSave = async () => {
+    setSaveError('')
+    const message = await save({
+      emailFrequency: alertFreq,
+      deadlineAlertDays: favDays,
+      deadlineDashboardAlert: favDashboard,
+      deadlineEmailAlert: favEmail,
+    })
+    if (message) {
+      setSaveError(message)
+      return
+    }
     setSavedMsg(true)
     setTimeout(() => setSavedMsg(false), 2000)
   }
@@ -151,14 +174,21 @@ export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }
       </div>
 
       <div className="flex items-center gap-3">
-        <button onClick={handleSave} className="bg-[#1d3557] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#16293f] transition-colors">
-          저장
+        <button
+          onClick={handleSave}
+          disabled={pending}
+          className="bg-[#1d3557] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#16293f] disabled:opacity-50 transition-colors"
+        >
+          {pending ? '저장 중...' : '저장'}
         </button>
         {savedMsg && (
           <span className="text-sm text-green-600 font-medium flex items-center gap-1">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
             저장되었습니다.
           </span>
+        )}
+        {(saveError || loadError) && (
+          <span className="text-sm text-red-600 font-medium">{saveError || loadError}</span>
         )}
       </div>
     </div>
