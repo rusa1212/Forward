@@ -6,6 +6,8 @@ API입니다. 이름/연락처/아이디는 우리 스키마에 없는 필드라
 테이블에 존재하지 않음) 이번 범위에서는 이메일 변경 + 비밀번호 변경만 다룹니다.
 FE 쪽 이름/연락처/아이디 표시는 그대로 두거나, 필요하면 스키마 변경을 별도로 논의해야 합니다.
 """
+from typing import Literal
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
@@ -13,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.api.v1.auth import _hash_password, _verify_password, get_current_user
 from app.core.errors import AppError
-from app.db.models import Employee, User
+from app.db.models import AlertSetting, Employee, User
 from app.db.session import get_db
 
 router = APIRouter(tags=["me"])
@@ -80,3 +82,63 @@ def change_password(
     db.commit()
 
     return {"success": True, "data": {"message": "비밀번호가 변경되었습니다."}}
+
+
+# 마이페이지 알림 설정 (docs/fe/alert-settings-API-제안.md).
+# 행이 없는 사용자는 화면 기본값으로 취급한다 — 회원가입 시 미리 만들 필요도,
+# 조회 실패와 "아직 저장한 적 없음"을 구분할 필요도 없다.
+_DEFAULT_ALERT_SETTING = {
+    "emailFrequency": "daily",
+    "deadlineAlertDays": 7,
+    "deadlineDashboardAlert": True,
+    "deadlineEmailAlert": False,
+}
+
+
+def _serialize_alert_setting(row: AlertSetting | None) -> dict:
+    if row is None:
+        return dict(_DEFAULT_ALERT_SETTING)
+    return {
+        "emailFrequency": row.email_frequency,
+        "deadlineAlertDays": row.deadline_alert_days,
+        "deadlineDashboardAlert": row.deadline_dashboard_alert,
+        "deadlineEmailAlert": row.deadline_email_alert,
+    }
+
+
+@router.get("/me/alert-settings")
+def get_alert_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    row = db.get(AlertSetting, current_user.id)
+    return {"success": True, "data": _serialize_alert_setting(row)}
+
+
+class UpdateAlertSettingsRequest(BaseModel):
+    """4개 필드 전부(부분 수정이 아니라 전체 교체) — 화면 저장 버튼이 한 번에 다 보낸다."""
+    emailFrequency: Literal["daily", "weekly"]
+    deadlineAlertDays: Literal[7, 3, 1]
+    deadlineDashboardAlert: bool
+    deadlineEmailAlert: bool
+
+
+@router.put("/me/alert-settings")
+def update_alert_settings(
+    body: UpdateAlertSettingsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    row = db.get(AlertSetting, current_user.id)
+    if row is None:
+        row = AlertSetting(user_id=current_user.id)
+        db.add(row)
+
+    row.email_frequency = body.emailFrequency
+    row.deadline_alert_days = body.deadlineAlertDays
+    row.deadline_dashboard_alert = body.deadlineDashboardAlert
+    row.deadline_email_alert = body.deadlineEmailAlert
+    db.commit()
+    db.refresh(row)
+
+    return {"success": True, "data": _serialize_alert_setting(row)}

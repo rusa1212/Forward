@@ -27,8 +27,10 @@ def _make_announcement(db, external_id="ext-1", title="AI 기반 시스템 개�
     return ann.id
 
 
-def _add_keyword(db, user_id, keyword="AI") -> str:
-    kw = Keyword(id=str(uuid.uuid4()), user_id=user_id, keyword=keyword)
+def _add_keyword(db, user_id, keyword="AI", email_alert=True) -> str:
+    # email_alert 기본값은 True — 이 파일의 이메일 발송 테스트들이 기대하는 대로
+    # (실제 컬럼 기본값은 False, 옵트인이다. docs/fe/alert-settings-API-제안.md)
+    kw = Keyword(id=str(uuid.uuid4()), user_id=user_id, keyword=keyword, email_alert=email_alert)
     db.add(kw)
     db.commit()
     return kw.id

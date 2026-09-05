@@ -65,6 +65,14 @@ export interface Me {
   email: string
 }
 
+/** back/app/api/v1/me.py의 GET/PUT /me/alert-settings가 내려주는 필드 그대로. */
+export interface AlertSettings {
+  emailFrequency: 'daily' | 'weekly'
+  deadlineAlertDays: 7 | 3 | 1
+  deadlineDashboardAlert: boolean
+  deadlineEmailAlert: boolean
+}
+
 /**
  * back/app/api/v1/notifications.py의 _serialize()가 내려주는 필드 그대로.
  * DOM 전역 `Notification`과 이름이 겹치지 않도록 App 접두어를 붙였다.
