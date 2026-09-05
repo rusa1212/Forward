@@ -22,7 +22,14 @@ from app.db.models import Employee, User
 from app.db.session import SessionLocal
 from app.main import app
 
-_CLEAN_TABLES = ("saved_announcements", "keywords", "users", "announcements", "employees")
+_CLEAN_TABLES = (
+    "notification_logs",
+    "saved_announcements",
+    "keywords",
+    "users",
+    "announcements",
+    "employees",
+)
 
 
 @pytest.fixture(autouse=True)
