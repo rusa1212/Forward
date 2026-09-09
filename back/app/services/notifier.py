@@ -1,10 +1,11 @@
 """알림 생성 + 이메일 발송 자동화 (5주차 우선순위 P1 "알림·이메일 발송 자동화 파이프라인").
 
-scheduler.py의 매일 06시(기본) 자동 수집 직후 이 순서로 실행됩니다:
+scheduler.py의 자동 수집(기본 하루 2회, 06시·18시) 직후 매 실행마다 이 순서로 돌아갑니다:
   ① 공고 수집·저장 (scheduler.py, storage.py — 기존)
   ② 키워드 매칭 + 저장공고 마감임박으로 알림 생성 → notification_logs 적재
      (generate_keyword_match_notifications)
   ③ 아직 이메일로 안 보낸 알림을 사용자별로 모아 이메일 발송 (send_pending_notification_emails)
+     — 수집이 하루 2회이므로 daily 사용자는 새 매칭 공고를 반나절 안에 메일로 받는다.
 
 알림 설정 반영 (docs/fe/alert-settings-API-제안.md):
 - 알림 종류는 두 갈래다 — ① 키워드 매칭(신규매칭 + 그 공고의 마감임박, keyword_id 있음)은
@@ -18,7 +19,7 @@ scheduler.py의 매일 06시(기본) 자동 수집 직후 이 순서로 실행�
   취급한다.
 
 주의:
-- ②는 매일 전체를 다시 계산해도 안전합니다. notification_logs의 UNIQUE(user_id, announcement_id,
+- ②는 매 실행마다 전체를 다시 계산해도 안전합니다. notification_logs의 UNIQUE(user_id, announcement_id,
   notify_type) 제약 + INSERT IGNORE로, 이미 만들어진 알림은 자동으로 건너뜁니다. 키워드 마감임박과
   즐겨찾기 마감임박이 같은 공고를 가리켜도 이 제약 덕분에 한 행으로 자연스럽게 합쳐집니다.
 - ③(이메일 발송)은 .env에 SMTP_HOST가 설정되어 있어야 실제로 동작합니다. 아직 어떤 이메일
@@ -179,6 +180,10 @@ def _send_email(to_email: str, subject: str, body: str) -> None:
 
 def send_pending_notification_emails(db: Session) -> int:
     """emailed_at이 비어있는 알림 중 이메일 설정이 켜진 것만 사용자별로 묶어 발송.
+
+    scheduler가 수집(하루 2회)마다 ② 알림 생성 직후 호출한다. emailed_at으로 이미
+    보낸 건 걸러지므로, 각 실행에서는 그 회차에 새로 생긴 매칭만 메일로 나간다
+    (daily 사용자 기준 — weekly 사용자는 월요일 실행에만 발송).
 
     SMTP_HOST가 비어있으면(기본값) 실제 발송 없이 로그만 남기고 0을 반환한다.
     한 사용자에게 보내는 이메일이 실패해도 다른 사용자 발송은 계속 진행한다.

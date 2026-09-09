@@ -566,8 +566,8 @@ BE 구현: `back/app/api/v1/dashboard.py`. **토큰 필요.**
 | `date.today()` (KST) | `2026-09-05` |
 | **`counts.newToday`** | **0** ← 방금 수집했는데 0건 |
 
-**KST 00:00~08:59에 수집된 공고가 "오늘 신규"에서 전부 누락된다.** 매일 06:00 자동 수집이 바로 이 구간이라
-운영에 들어가면 `newToday`가 상시 0이 될 수 있다. FE는 같은 시각을 로컬로 변환해 보므로(1-5절)
+**KST 00:00~08:59에 수집된 공고가 "오늘 신규"에서 전부 누락된다.** 하루 2회 자동 수집 중 06시 실행이 바로 이 구간이라
+운영에 들어가면 오전 시간대에 `newToday`가 0으로 보일 수 있다. FE는 같은 시각을 로컬로 변환해 보므로(1-5절)
 화면의 NEW 배지와 BE 집계가 서로 어긋난다. **BE에서 비교 기준을 UTC로 맞춰야 한다.**
 
 ---
@@ -738,15 +738,19 @@ BE 구현: `back/app/api/v1/notifications.py`. 데이터 원본은 `notification
 ### 9-4. 알림을 "쌓는" 파이프라인 — 연결되어 있다
 
 이 API 자체는 `notification_logs`를 **조회·읽음 처리**만 하지만,
-알림을 생성하는 파이프라인은 이미 스케줄러에 연결돼 있다 (`back/app/core/scheduler.py`의 `run_daily_collect`):
+알림을 생성하는 파이프라인은 이미 스케줄러에 연결돼 있다 (`back/app/core/scheduler.py`의 `run_scheduled_collect`):
 
 ```
-매일 06:00 (COLLECT_CRON_HOUR/MINUTE)
+하루 2회 (기본 06·18시, COLLECT_CRON_HOURS/MINUTE) — 매 실행마다
   → collect_all()                             공공데이터포털 3종 수집
   → save_announcements()                      announcements upsert
   → generate_keyword_match_notifications()    키워드 매칭 → notification_logs 생성
-  → send_pending_notification_emails()        미발송 알림 이메일 발송
+  → send_pending_notification_emails()        미발송 알림 이메일 발송 (그 회차 새 매칭만 나감)
 ```
+
+> 수집이 하루 2회이므로 키워드 매칭 공고는 다음 수집 실행 때(최대 반나절 내) 메일로 나간다.
+> 발송 주기(daily/weekly)는 사용자별 `alert_settings`를 그대로 따른다 — daily면 매 실행,
+> weekly면 월요일 실행에만.
 
 > **2026-09-05 정정.** 진행상황 문서에는 "06:00 수집 이후 단계 없음 / 알림·이메일 발송 미구현"으로
 > 적혀 있으나, 위 4단계는 이미 코드에 연결돼 있다. `generate_keyword_match_notifications()`를
@@ -896,4 +900,4 @@ FE는 이 표를 기준으로 화면 문구를 고른다. 표에 없는 `code`�
 | ✅ 완료 | 검색 상태 필터를 `?statusLabel=` 서버 쿼리로 이관 (4-4절) |
 | 🔴 BE 수정 | `dashboard/summary`의 `newToday` 타임존 버그 (7-3절) |
 | ⬜ BE 미구현 | `alert_settings` — 마이페이지 알림 설정 탭이 이것 때문에 연동 불가 |
-| ⚙️ 설정 필요 | `06:00 수집 → 매칭 → 알림 생성 → 이메일 발송` 파이프라인은 **이미 연결됨**. `DATA_GO_KR_API_KEY`(수집)와 `SMTP_*`(이메일) 설정만 남음 (9-4절) |
+| ⚙️ 설정 필요 | `하루 2회 수집 → 매칭 → 알림 생성 → 이메일 발송` 파이프라인은 **이미 연결됨**. `DATA_GO_KR_API_KEY`(수집)와 `SMTP_*`(이메일) 설정만 남음 (9-4절) |

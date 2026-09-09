@@ -17,8 +17,9 @@ class Settings(BaseSettings):
     # DB 접속정보 (MySQL/MariaDB, mysql+pymysql://... 형식 — .env.example 참고)
     DATABASE_URL: str = ""
 
-    # 매일 자동 수집 실행 시각 (서버 로컬 시간 기준)
-    COLLECT_CRON_HOUR: int = 6
+    # 자동 수집 실행 시각 (서버 로컬 시간 기준). 쉼표로 여러 시각 지정 — 기본은 하루 2회(06시·18시).
+    # APScheduler CronTrigger의 hour 필드에 그대로 전달된다 ("6,18", "0,6,12,18", "*/6" 등).
+    COLLECT_CRON_HOURS: str = "6,18"
     COLLECT_CRON_MINUTE: int = 0
 
     # 로그인 토큰(JWT) 서명용. 실서비스 배포 전 반드시 각자 .env에서 무작위 값으로 교체할 것.

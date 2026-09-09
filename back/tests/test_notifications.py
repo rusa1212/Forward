@@ -91,16 +91,18 @@ def test_generate_no_match_no_keywords(db, make_user):
     assert created == 0
 
 
-# ---- notifier service (pipeline step 3: email, SMTP_HOST unset by default) ----
+# ---- notifier service (pipeline step 3: email) ----
+# 로컬 .env에 SMTP_HOST가 채워져 있을 수 있으므로 "SMTP 미설정" 테스트는 명시적으로 비운다.
 
-def test_send_pending_emails_noop_without_smtp_host(db, make_user):
+def test_send_pending_emails_noop_without_smtp_host(db, make_user, monkeypatch):
+    monkeypatch.setattr(settings, "SMTP_HOST", "")
     user = make_user()
     _add_keyword(db, user["userId"], "AI")
     _make_announcement(db, title="AI 기반 시스템 개발")
     generate_keyword_match_notifications(db)
 
     sent = send_pending_notification_emails(db)
-    assert sent == 0  # settings.SMTP_HOST is empty by default -> emails skipped, no crash
+    assert sent == 0  # SMTP_HOST 비어있음 -> 발송 건너뜀, 크래시 없음
 
     rows = db.query(NotificationLog).filter(NotificationLog.user_id == user["userId"]).all()
     assert all(row.emailed_at is None for row in rows)  # nothing marked as emailed
@@ -156,7 +158,8 @@ def test_send_pending_emails_failure_for_one_user_does_not_block_others(db, make
 
 # ---- notifier service: "지금 이메일로 받기" (send_notifications_to_user_now) ----
 
-def test_send_now_raises_without_smtp_host(db, make_user):
+def test_send_now_raises_without_smtp_host(db, make_user, monkeypatch):
+    monkeypatch.setattr(settings, "SMTP_HOST", "")
     user_row = db.get(User, make_user()["userId"])
     with pytest.raises(EmailNotConfiguredError):
         send_notifications_to_user_now(db, user_row)
@@ -227,7 +230,8 @@ def test_send_now_does_not_mark_emailed_on_failure(db, make_user, monkeypatch):
 
 # ---- notification-email API (POST /me/notification-email) ----
 
-def test_send_my_notification_email_not_configured(client, make_user):
+def test_send_my_notification_email_not_configured(client, make_user, monkeypatch):
+    monkeypatch.setattr(settings, "SMTP_HOST", "")
     user = make_user()
     res = client.post("/api/v1/me/notification-email", headers=user["headers"])
     assert res.status_code == 503
