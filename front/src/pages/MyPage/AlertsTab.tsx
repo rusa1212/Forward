@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import Toggle from '@/components/common/Toggle'
 import { useAlertSettings } from '@/hooks/useAlertSettings'
 import { useKeywordsContext } from '@/contexts/KeywordsContext'
+import { ApiError } from '@/lib/api'
+import { sendMyNotificationEmail } from '@/lib/me'
 import type { MyTab } from '@/types'
 
 export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }) {
@@ -13,6 +15,9 @@ export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }
   const [favDashboard, setFavDashboard] = useState(true)
   const [favEmail, setFavEmail] = useState(false)
   const [favDays, setFavDays] = useState<7 | 3 | 1>(7)
+  const [sendingNow, setSendingNow] = useState(false)
+  const [sendMsg, setSendMsg] = useState('')
+  const [sendError, setSendError] = useState('')
 
   // 조회가 끝나면 폼 초기값을 서버 값으로 맞춘다
   useEffect(() => {
@@ -37,6 +42,21 @@ export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }
     }
     setSavedMsg(true)
     setTimeout(() => setSavedMsg(false), 2000)
+  }
+
+  const handleSendNow = async () => {
+    setSendingNow(true)
+    setSendMsg('')
+    setSendError('')
+    try {
+      const result = await sendMyNotificationEmail()
+      setSendMsg(result.message)
+      setTimeout(() => setSendMsg(''), 4000)
+    } catch (e) {
+      setSendError(e instanceof ApiError ? e.message : '이메일 발송에 실패했습니다.')
+    } finally {
+      setSendingNow(false)
+    }
   }
 
   return (
@@ -118,6 +138,23 @@ export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }
               {label}
             </button>
           ))}
+        </div>
+        <div className="px-5 py-4 border-t border-gray-50 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <button
+            onClick={handleSendNow}
+            disabled={sendingNow}
+            className="border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            {sendingNow ? '보내는 중...' : '지금 이메일로 받기'}
+          </button>
+          <span className="text-xs text-gray-400">아직 보내지 않은 알림을 지금 즉시 이메일로 보냅니다</span>
+          {sendMsg && (
+            <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              {sendMsg}
+            </span>
+          )}
+          {sendError && <span className="text-sm text-red-600 font-medium">{sendError}</span>}
         </div>
       </div>
 

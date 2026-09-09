@@ -35,3 +35,25 @@ export function changePassword(currentPw: string, newPw: string) {
 
 /** BE가 요구하는 새 비밀번호 최소 길이 (me.py의 ChangePasswordRequest) */
 export const MIN_PASSWORD_LENGTH = 6
+
+export interface SendNotificationEmailResult {
+  /** 이번에 이메일로 보낸 알림 개수. 보낼 게 없었으면 0 */
+  sent: number
+  /** 발송한 이메일 주소. sent가 0이면 없음 */
+  sentTo?: string
+  message: string
+}
+
+/**
+ * 마이페이지 알림 설정의 "지금 이메일로 받기".
+ * 아직 이메일로 안 보낸 내 알림을 즉시 내 이메일로 보낸다(발송 주기·토글 설정 무시).
+ *
+ * - 보낼 알림이 없으면 오류가 아니라 `{ sent: 0 }`
+ * - SMTP 미설정 시 ApiError(503, 'EMAIL_NOT_CONFIGURED')
+ * - 발송 실패 시 ApiError(502, 'EMAIL_SEND_FAILED')
+ */
+export function sendMyNotificationEmail() {
+  return api
+    .post<SendNotificationEmailResult>('/me/notification-email')
+    .then(({ data }) => data)
+}

@@ -1,11 +1,15 @@
 import uuid
 from datetime import date, timedelta
 
+import pytest
+
 from app.core.config import settings
-from app.db.models import Announcement, Keyword, NotificationLog
+from app.db.models import AlertSetting, Announcement, Keyword, NotificationLog, User
 from app.services import notifier
 from app.services.notifier import (
+    EmailNotConfiguredError,
     generate_keyword_match_notifications,
+    send_notifications_to_user_now,
     send_pending_notification_emails,
 )
 
@@ -148,6 +152,117 @@ def test_send_pending_emails_failure_for_one_user_does_not_block_others(db, make
     bad_row = db.query(NotificationLog).filter(NotificationLog.user_id == bad_user["userId"]).one()
     assert good_row.emailed_at is not None
     assert bad_row.emailed_at is None  # left pending so a future run retries it
+
+
+# ---- notifier service: "지금 이메일로 받기" (send_notifications_to_user_now) ----
+
+def test_send_now_raises_without_smtp_host(db, make_user):
+    user_row = db.get(User, make_user()["userId"])
+    with pytest.raises(EmailNotConfiguredError):
+        send_notifications_to_user_now(db, user_row)
+
+
+def test_send_now_returns_zero_when_nothing_pending(db, make_user, monkeypatch):
+    user_row = db.get(User, make_user()["userId"])
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
+
+    def _fail(*a, **k):
+        raise AssertionError("should not send")
+
+    monkeypatch.setattr(notifier, "_send_email", _fail)
+
+    assert send_notifications_to_user_now(db, user_row) == 0
+
+
+def test_send_now_sends_pending_ignoring_toggles_and_frequency(db, make_user, monkeypatch):
+    user = make_user(email="now@test.com")
+    user_row = db.get(User, user["userId"])
+    # email_alert=False on the keyword + weekly frequency — auto pipeline would skip these,
+    # but the explicit "send now" button must send them anyway.
+    _add_keyword(db, user["userId"], "AI", email_alert=False)
+    _make_announcement(db, title="AI 마감임박 공고", days_to_end=1)
+    generate_keyword_match_notifications(db)
+    db.add(AlertSetting(user_id=user["userId"], email_frequency="weekly", deadline_email_alert=False))
+    db.commit()
+
+    sent_messages = []
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(notifier, "_send_email", lambda to, subject, body: sent_messages.append((to, subject, body)))
+
+    sent = send_notifications_to_user_now(db, user_row)
+    assert sent == 2  # 신규매칭 + 마감임박
+    assert sent_messages[0][0] == "now@test.com"
+
+    rows = db.query(NotificationLog).filter(NotificationLog.user_id == user["userId"]).all()
+    assert all(row.emailed_at is not None for row in rows)
+
+    # nothing pending on a second call
+    assert send_notifications_to_user_now(db, user_row) == 0
+    assert len(sent_messages) == 1
+
+
+def test_send_now_does_not_mark_emailed_on_failure(db, make_user, monkeypatch):
+    user = make_user()
+    user_row = db.get(User, user["userId"])
+    _add_keyword(db, user["userId"], "AI", email_alert=False)
+    _make_announcement(db, title="AI 기반 시스템 개발")
+    generate_keyword_match_notifications(db)
+
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
+
+    def boom(*a, **k):
+        raise RuntimeError("smtp down")
+
+    monkeypatch.setattr(notifier, "_send_email", boom)
+
+    try:
+        send_notifications_to_user_now(db, user_row)
+        assert False, "exception expected"
+    except RuntimeError:
+        pass
+
+    rows = db.query(NotificationLog).filter(NotificationLog.user_id == user["userId"]).all()
+    assert all(row.emailed_at is None for row in rows)
+
+
+# ---- notification-email API (POST /me/notification-email) ----
+
+def test_send_my_notification_email_not_configured(client, make_user):
+    user = make_user()
+    res = client.post("/api/v1/me/notification-email", headers=user["headers"])
+    assert res.status_code == 503
+    assert res.json()["error"]["code"] == "EMAIL_NOT_CONFIGURED"
+
+
+def test_send_my_notification_email_nothing_pending(client, make_user, monkeypatch):
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
+    user = make_user()
+    res = client.post("/api/v1/me/notification-email", headers=user["headers"])
+    assert res.status_code == 200, res.text
+    assert res.json()["data"] == {"sent": 0, "message": "새로 보낼 알림이 없습니다."}
+
+
+def test_send_my_notification_email_success(client, db, make_user, monkeypatch):
+    user = make_user(email="me-now@test.com")
+    _add_keyword(db, user["userId"], "AI", email_alert=False)
+    _make_announcement(db, title="AI 기반 시스템 개발")
+    generate_keyword_match_notifications(db)
+
+    sent_messages = []
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(notifier, "_send_email", lambda to, subject, body: sent_messages.append(to))
+
+    res = client.post("/api/v1/me/notification-email", headers=user["headers"])
+    assert res.status_code == 200, res.text
+    data = res.json()["data"]
+    assert data["sent"] == 1
+    assert data["sentTo"] == "me-now@test.com"
+    assert sent_messages == ["me-now@test.com"]
+
+
+def test_send_my_notification_email_requires_auth(client):
+    res = client.post("/api/v1/me/notification-email")
+    assert res.status_code in (401, 403)
 
 
 # ---- notifications API (list / read / read-all) ----

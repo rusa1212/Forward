@@ -46,6 +46,14 @@ from app.db.models import AlertSetting, Announcement, Keyword, NotificationLog, 
 logger = logging.getLogger("app.notifier")
 
 
+class EmailNotConfiguredError(RuntimeError):
+    """SMTP_HOST가 비어있어 실제 이메일 발송이 불가능한 상태.
+
+    자동 파이프라인(send_pending_notification_emails)은 이 경우 조용히 건너뛰지만,
+    사용자가 화면에서 직접 "지금 이메일로 받기"를 누른 경우엔 왜 안 보내지는지
+    알려줘야 하므로 예외로 구분한다."""
+
+
 class _AlertSettingView(NamedTuple):
     email_frequency: str
     deadline_alert_days: int
@@ -225,3 +233,36 @@ def send_pending_notification_emails(db: Session) -> int:
 
     db.commit()
     return emailed_count
+
+
+def send_notifications_to_user_now(db: Session, user: User) -> int:
+    """사용자가 화면에서 직접 요청한 "지금 이메일로 받기".
+
+    자동 발송(send_pending_notification_emails)과 달리 발송 주기(daily/weekly)나
+    키워드/즐겨찾기 이메일 토글을 따지지 않는다 — 사용자가 지금 명시적으로 눌렀으니
+    아직 이메일로 보내지 않은(emailed_at IS NULL) 내 알림을 전부 지금 보낸다.
+
+    - SMTP_HOST가 비어있으면 EmailNotConfiguredError를 던진다(자동 파이프라인은 조용히
+      건너뛰지만, 사용자 액션에서는 이유를 알려줘야 한다).
+    - 보낼 알림이 없으면 발송하지 않고 0을 반환한다(오류 아님).
+    - 발송에 실패하면 emailed_at을 건드리지 않고 예외를 그대로 전파한다.
+    반환값: 이번에 이메일로 보낸 알림 개수.
+    """
+    if not settings.SMTP_HOST:
+        raise EmailNotConfiguredError
+
+    pending = db.execute(
+        select(NotificationLog)
+        .where(NotificationLog.user_id == user.id, NotificationLog.emailed_at.is_(None))
+        .order_by(NotificationLog.created_at.desc())
+    ).scalars().all()
+    if not pending:
+        return 0
+
+    _send_email(user.email, "[Forward] 새 알림이 있습니다", _build_email_body(pending))
+
+    now = datetime.utcnow()
+    for row in pending:
+        row.emailed_at = now
+    db.commit()
+    return len(pending)

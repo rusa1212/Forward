@@ -581,6 +581,7 @@ BE 구현: `back/app/api/v1/me.py`. **모두 토큰 필요.**
 | `GET` | `/me` | 내 정보 조회 |
 | `PATCH` | `/me` | 내 정보 수정 (**이메일만**) |
 | `POST` | `/me/change-password` | 비밀번호 변경 |
+| `POST` | `/me/notification-email` | 내 알림을 지금 즉시 이메일로 받기 |
 
 ### 8-1. 내 정보 객체
 
@@ -635,6 +636,38 @@ BE 구현: `back/app/api/v1/me.py`. **모두 토큰 필요.**
 
 **변경 후 기존 토큰은 그대로 유효하다** — 서버가 상태를 갖지 않는 JWT라 세션이 끊기지 않는다.
 재로그인은 새 비밀번호로 해야 한다.
+
+### 8-4. `POST /me/notification-email` — 지금 이메일로 받기
+
+마이페이지 알림 설정(`AlertsTab`)의 **"지금 이메일로 받기"** 버튼용. 매일/주간 자동 발송을
+기다리지 않고, 아직 이메일로 보내지 않은(`notification_logs.emailed_at IS NULL`) 내 알림을
+지금 즉시 내 이메일 주소로 한 통에 모아 보낸다.
+
+- **발송 주기(daily/weekly)와 키워드·즐겨찾기 이메일 토글 설정을 무시한다** — 사용자가 직접
+  눌렀으므로. 보낸 알림은 `emailed_at`이 채워져 다음 자동 발송에서 중복 발송되지 않는다.
+- 요청 본문 없음. 토큰만 필요.
+
+**응답 (보낼 알림이 있을 때)**
+
+```json
+{ "success": true, "data": { "sent": 3, "sentTo": "user@example.com",
+  "message": "알림 3건을 user@example.com(으)로 보냈습니다." } }
+```
+
+**응답 (보낼 알림이 없을 때 — 오류 아님)**
+
+```json
+{ "success": true, "data": { "sent": 0, "message": "새로 보낼 알림이 없습니다." } }
+```
+
+| HTTP | `code` | 상황 |
+| :---: | --- | --- |
+| 503 | `EMAIL_NOT_CONFIGURED` | 서버에 `SMTP_*`가 설정되지 않아 실제 발송이 불가능 (9-4절) |
+| 502 | `EMAIL_SEND_FAILED` | SMTP 발송 자체가 실패 — `emailed_at`은 그대로 두어 재시도 가능 |
+
+> `SMTP_HOST`가 비어있으면 자동 파이프라인은 조용히 건너뛰지만, 이 API는 사용자에게
+> 이유를 알려야 하므로 503으로 응답한다. FE는 이 코드일 때 "이메일 발송이 아직
+> 설정되지 않았습니다" 안내를 띄운다.
 
 ---
 
