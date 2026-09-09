@@ -167,13 +167,13 @@ MySQL/MariaDB에는 Supabase의 RLS가 없습니다. 사용자별 데이터 접�
 
 ## 테스트 (5주차 우선순위 - API 테스트 보강)
 
-`back/tests/`에 pytest 기반 API 테스트가 있습니다 (health/auth/keywords/saved-announcements/admin/dashboard, 총 34개 케이스 — 정상 케이스뿐 아니라 401/403/404/409 같은 실패 케이스와, 다른 사용자의 데이터에 접근 못 하는지(RLS 없음에 대한 회귀 방지)도 검증).
+`back/tests/`에 pytest 기반 API 테스트가 있습니다 (health/auth/keywords/saved-announcements/admin/dashboard/me/notifications/scheduler — 정상 케이스뿐 아니라 401/403/404/409 같은 실패 케이스와, 다른 사용자의 데이터에 접근 못 하는지(RLS 없음에 대한 회귀 방지)도 검증).
 
 ```bash
 .venv\Scripts\pip install -r requirements-dev.txt   # pytest 설치 (최초 1회)
 .venv\Scripts\python -m pytest tests\ -v
 ```
 
-**주의**: 이 테스트는 `.env`의 `DATABASE_URL`이 가리키는 DB의 `users`/`employees`/`announcements`/`keywords`/`saved_announcements` 테이블 내용을 각 테스트 전에 전부 지웁니다(`tests/conftest.py`의 `clean_db`). **로컬 개발용 DB에서만 실행하세요 — 운영/공유 DB에 대고 실행하면 안 됩니다.**
+**테스트 DB는 개발 DB와 분리돼 있습니다.** `tests/conftest.py`가 `TEST_DATABASE_URL`(없으면 `DATABASE_URL`의 DB 이름 + `_test`, 예: `forward` → `forward_test`)을 쓰고, 그 DB를 매 실행마다 드롭/재생성합니다. 테스트 DB가 없으면 `CREATE DATABASE`로 자동 생성합니다(계정에 CREATE 권한 필요 — 없으면 `.env`에 `TEST_DATABASE_URL`을 직접 지정하거나 미리 만들어 두세요). 테스트 DB가 `DATABASE_URL`과 같은 DB를 가리키면 conftest가 실행을 막습니다 — **개발 데이터는 테스트로 인해 지워지지 않습니다.**
 
 `/collect`(공공데이터포털 실제 API 호출)는 외부 서비스 의존성 때문에 이번 자동화 테스트 범위에서 제외했습니다 — 필요하면 이후 mock 처리해서 추가할 수 있습니다.
