@@ -11,7 +11,7 @@ app/
   core/
     config.py           .env 읽는 설정값 (Settings)
     errors.py            공통 오류 응답 형식 ({"success": false, "error": {...}})
-    scheduler.py         APScheduler — 하루 1회(기본 06:00) 공고 수집 + 알림 생성 + 이메일 발송 자동 실행
+    scheduler.py         APScheduler — 하루 2회(기본 06·18시) 공고 수집 + 알림 생성 + 이메일 발송 자동 실행
   db/
     session.py           SQLAlchemy 세션 (Depends(get_db)). mysql일 때 세션 time_zone=UTC 고정
     models.py             ORM 모델 6개 (employees/users/announcements/keywords/notification_logs/saved_announcements)
@@ -145,13 +145,13 @@ docker compose up -d --wait     # --wait: DB가 healthy 될 때까지 대기 (�
 
 ## 알림·이메일 발송 자동화 (5주차 우선순위 P1)
 
-매일 자동 수집(기본 06:00, `COLLECT_CRON_HOUR`/`COLLECT_CRON_MINUTE`) 직후 `app/core/scheduler.py`가 이어서 실행하는 순서:
+자동 수집(기본 하루 2회 06·18시, `COLLECT_CRON_HOURS`/`COLLECT_CRON_MINUTE`) 직후 매 실행마다 `app/core/scheduler.py`가 이어서 실행하는 순서:
 
 1. 공고 수집·저장 (기존)
-2. `app/services/notifier.py`의 `generate_keyword_match_notifications` — 모든 사용자의 키워드로 공고 제목을 매칭해서 `notification_logs`에 알림 적재. `신규매칭`(키워드 매칭되는 모든 공고) + `마감임박`(그중 announcements.py와 동일 기준으로 마감임박인 것). `UNIQUE(user_id, announcement_id, notify_type)` + `INSERT IGNORE`로 매일 전체를 다시 계산해도 중복 알림이 안 쌓임.
-3. `send_pending_notification_emails` — `emailed_at`이 비어있는 알림을 사용자별로 모아 이메일 1통으로 발송, 성공하면 `emailed_at` 채움.
+2. `app/services/notifier.py`의 `generate_keyword_match_notifications` — 모든 사용자의 키워드로 공고 제목을 매칭해서 `notification_logs`에 알림 적재. `신규매칭`(키워드 매칭되는 모든 공고) + `마감임박`(그중 announcements.py와 동일 기준으로 마감임박인 것). `UNIQUE(user_id, announcement_id, notify_type)` + `INSERT IGNORE`로 매 실행마다 전체를 다시 계산해도 중복 알림이 안 쌓임.
+3. `send_pending_notification_emails` — `emailed_at`이 비어있는 알림을 사용자별로 모아 이메일 1통으로 발송, 성공하면 `emailed_at` 채움. 수집이 하루 2회이므로 새 키워드 매칭 공고는 반나절 안에 메일로 나감(daily 기준, weekly는 월요일 실행에만).
 
-**이메일 발송은 SMTP 설정이 있어야 실제로 동작합니다.** `.env`의 `SMTP_HOST`가 비어있으면(기본값) 이메일 발송 없이 로그만 남기고 넘어갑니다 — 알림 저장(2번)까지는 SMTP 설정 여부와 무관하게 정상 동작합니다. 어떤 이메일 서비스(SMTP 릴레이/Gmail/SendGrid 등)를 쓸지는 아직 팀에서 결정 전이라, 결정되면 `.env`에 `SMTP_HOST`/`SMTP_PORT`/`SMTP_USERNAME`/`SMTP_PASSWORD`/`SMTP_FROM_EMAIL`/`SMTP_USE_TLS` 값만 채우면 코드 수정 없이 발송이 시작됩니다 (`.env.example` 참고). 로컬 디버그 SMTP 서버(`python -m smtpd -c DebuggingServer -n localhost:1025`)로 실제 발송 경로까지 테스트 완료했습니다.
+**이메일 발송은 SMTP 설정이 있어야 실제로 동작합니다.** `.env`의 `SMTP_HOST`가 비어있으면(기본값) 이메일 발송 없이 로그만 남기고 넘어갑니다 — 알림 저장(2번)까지는 SMTP 설정 여부와 무관하게 정상 동작합니다. 어떤 이메일 서비스(SMTP 릴레이/Gmail/SendGrid 등)를 쓸지는 아직 팀에서 결정 전이라, 결정되면 `.env`에 `SMTP_HOST`/`SMTP_PORT`/`SMTP_USERNAME`/`SMTP_PASSWORD`/`SMTP_FROM_EMAIL`/`SMTP_USE_TLS` 값만 채우면 코드 수정 없이 발송이 시작됩니다 (`.env.example` 참고). 로컬에서 실제 발송 경로를 확인하려면 `scripts/dev_smtp_sink.py`(메일을 밖으로 안 보내고 콘솔·`.dev-mail/*.eml`로 저장하는 SMTP 싱크)를 띄우고 `.env`에 `SMTP_HOST=localhost`/`SMTP_PORT=1025`/`SMTP_USE_TLS=false`를 넣으면 됩니다.
 
 "저장한 공고 마감임박 알림" (사용자가 마이페이지에서 D-7/D-3/D-1 중 선택하는 것, `ALERT_SETTINGS`)은 이번 범위가 아니고 별도 작업입니다 — 이번 자동화는 키워드 매칭 기반 알림만 다룹니다.
 
@@ -167,13 +167,13 @@ MySQL/MariaDB에는 Supabase의 RLS가 없습니다. 사용자별 데이터 접�
 
 ## 테스트 (5주차 우선순위 - API 테스트 보강)
 
-`back/tests/`에 pytest 기반 API 테스트가 있습니다 (health/auth/keywords/saved-announcements/admin/dashboard, 총 34개 케이스 — 정상 케이스뿐 아니라 401/403/404/409 같은 실패 케이스와, 다른 사용자의 데이터에 접근 못 하는지(RLS 없음에 대한 회귀 방지)도 검증).
+`back/tests/`에 pytest 기반 API 테스트가 있습니다 (health/auth/keywords/saved-announcements/admin/dashboard/me/notifications/scheduler — 정상 케이스뿐 아니라 401/403/404/409 같은 실패 케이스와, 다른 사용자의 데이터에 접근 못 하는지(RLS 없음에 대한 회귀 방지)도 검증).
 
 ```bash
 .venv\Scripts\pip install -r requirements-dev.txt   # pytest 설치 (최초 1회)
 .venv\Scripts\python -m pytest tests\ -v
 ```
 
-**주의**: 이 테스트는 `.env`의 `DATABASE_URL`이 가리키는 DB의 `users`/`employees`/`announcements`/`keywords`/`saved_announcements` 테이블 내용을 각 테스트 전에 전부 지웁니다(`tests/conftest.py`의 `clean_db`). **로컬 개발용 DB에서만 실행하세요 — 운영/공유 DB에 대고 실행하면 안 됩니다.**
+**테스트 DB는 개발 DB와 분리돼 있습니다.** `tests/conftest.py`가 `TEST_DATABASE_URL`(없으면 `DATABASE_URL`의 DB 이름 + `_test`, 예: `forward` → `forward_test`)을 쓰고, 그 DB를 매 실행마다 드롭/재생성합니다. 테스트 DB가 없으면 `CREATE DATABASE`로 자동 생성합니다(계정에 CREATE 권한 필요 — 없으면 `.env`에 `TEST_DATABASE_URL`을 직접 지정하거나 미리 만들어 두세요). 테스트 DB가 `DATABASE_URL`과 같은 DB를 가리키면 conftest가 실행을 막습니다 — **개발 데이터는 테스트로 인해 지워지지 않습니다.**
 
 `/collect`(공공데이터포털 실제 API 호출)는 외부 서비스 의존성 때문에 이번 자동화 테스트 범위에서 제외했습니다 — 필요하면 이후 mock 처리해서 추가할 수 있습니다.

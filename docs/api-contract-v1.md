@@ -566,8 +566,8 @@ BE 구현: `back/app/api/v1/dashboard.py`. **토큰 필요.**
 | `date.today()` (KST) | `2026-09-05` |
 | **`counts.newToday`** | **0** ← 방금 수집했는데 0건 |
 
-**KST 00:00~08:59에 수집된 공고가 "오늘 신규"에서 전부 누락된다.** 매일 06:00 자동 수집이 바로 이 구간이라
-운영에 들어가면 `newToday`가 상시 0이 될 수 있다. FE는 같은 시각을 로컬로 변환해 보므로(1-5절)
+**KST 00:00~08:59에 수집된 공고가 "오늘 신규"에서 전부 누락된다.** 하루 2회 자동 수집 중 06시 실행이 바로 이 구간이라
+운영에 들어가면 오전 시간대에 `newToday`가 0으로 보일 수 있다. FE는 같은 시각을 로컬로 변환해 보므로(1-5절)
 화면의 NEW 배지와 BE 집계가 서로 어긋난다. **BE에서 비교 기준을 UTC로 맞춰야 한다.**
 
 ---
@@ -581,6 +581,7 @@ BE 구현: `back/app/api/v1/me.py`. **모두 토큰 필요.**
 | `GET` | `/me` | 내 정보 조회 |
 | `PATCH` | `/me` | 내 정보 수정 (**이메일만**) |
 | `POST` | `/me/change-password` | 비밀번호 변경 |
+| `POST` | `/me/notification-email` | 내 알림을 지금 즉시 이메일로 받기 |
 
 ### 8-1. 내 정보 객체
 
@@ -635,6 +636,38 @@ BE 구현: `back/app/api/v1/me.py`. **모두 토큰 필요.**
 
 **변경 후 기존 토큰은 그대로 유효하다** — 서버가 상태를 갖지 않는 JWT라 세션이 끊기지 않는다.
 재로그인은 새 비밀번호로 해야 한다.
+
+### 8-4. `POST /me/notification-email` — 지금 이메일로 받기
+
+마이페이지 알림 설정(`AlertsTab`)의 **"지금 이메일로 받기"** 버튼용. 매일/주간 자동 발송을
+기다리지 않고, 아직 이메일로 보내지 않은(`notification_logs.emailed_at IS NULL`) 내 알림을
+지금 즉시 내 이메일 주소로 한 통에 모아 보낸다.
+
+- **발송 주기(daily/weekly)와 키워드·즐겨찾기 이메일 토글 설정을 무시한다** — 사용자가 직접
+  눌렀으므로. 보낸 알림은 `emailed_at`이 채워져 다음 자동 발송에서 중복 발송되지 않는다.
+- 요청 본문 없음. 토큰만 필요.
+
+**응답 (보낼 알림이 있을 때)**
+
+```json
+{ "success": true, "data": { "sent": 3, "sentTo": "user@example.com",
+  "message": "알림 3건을 user@example.com(으)로 보냈습니다." } }
+```
+
+**응답 (보낼 알림이 없을 때 — 오류 아님)**
+
+```json
+{ "success": true, "data": { "sent": 0, "message": "새로 보낼 알림이 없습니다." } }
+```
+
+| HTTP | `code` | 상황 |
+| :---: | --- | --- |
+| 503 | `EMAIL_NOT_CONFIGURED` | 서버에 `SMTP_*`가 설정되지 않아 실제 발송이 불가능 (9-4절) |
+| 502 | `EMAIL_SEND_FAILED` | SMTP 발송 자체가 실패 — `emailed_at`은 그대로 두어 재시도 가능 |
+
+> `SMTP_HOST`가 비어있으면 자동 파이프라인은 조용히 건너뛰지만, 이 API는 사용자에게
+> 이유를 알려야 하므로 503으로 응답한다. FE는 이 코드일 때 "이메일 발송이 아직
+> 설정되지 않았습니다" 안내를 띄운다.
 
 ---
 
@@ -705,15 +738,19 @@ BE 구현: `back/app/api/v1/notifications.py`. 데이터 원본은 `notification
 ### 9-4. 알림을 "쌓는" 파이프라인 — 연결되어 있다
 
 이 API 자체는 `notification_logs`를 **조회·읽음 처리**만 하지만,
-알림을 생성하는 파이프라인은 이미 스케줄러에 연결돼 있다 (`back/app/core/scheduler.py`의 `run_daily_collect`):
+알림을 생성하는 파이프라인은 이미 스케줄러에 연결돼 있다 (`back/app/core/scheduler.py`의 `run_scheduled_collect`):
 
 ```
-매일 06:00 (COLLECT_CRON_HOUR/MINUTE)
+하루 2회 (기본 06·18시, COLLECT_CRON_HOURS/MINUTE) — 매 실행마다
   → collect_all()                             공공데이터포털 3종 수집
   → save_announcements()                      announcements upsert
   → generate_keyword_match_notifications()    키워드 매칭 → notification_logs 생성
-  → send_pending_notification_emails()        미발송 알림 이메일 발송
+  → send_pending_notification_emails()        미발송 알림 이메일 발송 (그 회차 새 매칭만 나감)
 ```
+
+> 수집이 하루 2회이므로 키워드 매칭 공고는 다음 수집 실행 때(최대 반나절 내) 메일로 나간다.
+> 발송 주기(daily/weekly)는 사용자별 `alert_settings`를 그대로 따른다 — daily면 매 실행,
+> weekly면 월요일 실행에만.
 
 > **2026-09-05 정정.** 진행상황 문서에는 "06:00 수집 이후 단계 없음 / 알림·이메일 발송 미구현"으로
 > 적혀 있으나, 위 4단계는 이미 코드에 연결돼 있다. `generate_keyword_match_notifications()`를
@@ -863,4 +900,4 @@ FE는 이 표를 기준으로 화면 문구를 고른다. 표에 없는 `code`�
 | ✅ 완료 | 검색 상태 필터를 `?statusLabel=` 서버 쿼리로 이관 (4-4절) |
 | 🔴 BE 수정 | `dashboard/summary`의 `newToday` 타임존 버그 (7-3절) |
 | ⬜ BE 미구현 | `alert_settings` — 마이페이지 알림 설정 탭이 이것 때문에 연동 불가 |
-| ⚙️ 설정 필요 | `06:00 수집 → 매칭 → 알림 생성 → 이메일 발송` 파이프라인은 **이미 연결됨**. `DATA_GO_KR_API_KEY`(수집)와 `SMTP_*`(이메일) 설정만 남음 (9-4절) |
+| ⚙️ 설정 필요 | `하루 2회 수집 → 매칭 → 알림 생성 → 이메일 발송` 파이프라인은 **이미 연결됨**. `DATA_GO_KR_API_KEY`(수집)와 `SMTP_*`(이메일) 설정만 남음 (9-4절) |

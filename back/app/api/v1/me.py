@@ -6,6 +6,7 @@ API입니다. 이름/연락처/아이디는 우리 스키마에 없는 필드라
 테이블에 존재하지 않음) 이번 범위에서는 이메일 변경 + 비밀번호 변경만 다룹니다.
 FE 쪽 이름/연락처/아이디 표시는 그대로 두거나, 필요하면 스키마 변경을 별도로 논의해야 합니다.
 """
+import logging
 from typing import Literal
 
 from fastapi import APIRouter, Depends
@@ -17,6 +18,9 @@ from app.api.v1.auth import _hash_password, _verify_password, get_current_user
 from app.core.errors import AppError
 from app.db.models import AlertSetting, Employee, User
 from app.db.session import get_db
+from app.services.notifier import EmailNotConfiguredError, send_notifications_to_user_now
+
+logger = logging.getLogger("app.me")
 
 router = APIRouter(tags=["me"])
 
@@ -82,6 +86,44 @@ def change_password(
     db.commit()
 
     return {"success": True, "data": {"message": "비밀번호가 변경되었습니다."}}
+
+
+@router.post("/me/notification-email")
+def send_my_notification_email(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """마이페이지 알림 설정의 "지금 이메일로 받기" 버튼.
+
+    자동 발송(매일/주간)을 기다리지 않고, 아직 이메일로 안 보낸 내 알림을 즉시
+    내 이메일로 보낸다. 발송 주기·이메일 토글 설정은 무시한다(사용자가 직접 눌렀으므로).
+    보낼 알림이 없으면 오류가 아니라 sent=0으로 응답한다.
+    """
+    try:
+        sent = send_notifications_to_user_now(db, current_user)
+    except EmailNotConfiguredError:
+        raise AppError(
+            503,
+            "EMAIL_NOT_CONFIGURED",
+            "이메일 발송이 아직 설정되지 않았습니다. 관리자에게 문의해주세요.",
+        )
+    except Exception:
+        logger.exception("알림 이메일 즉시 발송 실패: user_id=%s", current_user.id)
+        raise AppError(
+            502, "EMAIL_SEND_FAILED", "이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요."
+        )
+
+    if sent == 0:
+        return {"success": True, "data": {"sent": 0, "message": "새로 보낼 알림이 없습니다."}}
+
+    return {
+        "success": True,
+        "data": {
+            "sent": sent,
+            "sentTo": current_user.email,
+            "message": f"알림 {sent}건을 {current_user.email}(으)로 보냈습니다.",
+        },
+    }
 
 
 # 마이페이지 알림 설정 (docs/fe/alert-settings-API-제안.md).

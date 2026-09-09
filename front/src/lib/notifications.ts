@@ -6,7 +6,7 @@ import type { AppNotification } from '@/types'
  * back/app/api/v1/notifications.py. 모두 토큰 필요. (docs/api-contract-v1.md 9절)
  *
  * 이 API는 notification_logs를 조회·읽음 처리만 한다. 알림을 쌓는 파이프라인은
- * core/scheduler.py의 매일 06시 수집에 이미 연결돼 있고, 수집 API 키가 없으면
+ * core/scheduler.py의 하루 2회(06·18시) 수집에 이미 연결돼 있고, 수집 API 키가 없으면
  * 새 공고가 없어 알림도 쌓이지 않는다.
  */
 

@@ -17,8 +17,14 @@ class Settings(BaseSettings):
     # DB 접속정보 (MySQL/MariaDB, mysql+pymysql://... 형식 — .env.example 참고)
     DATABASE_URL: str = ""
 
-    # 매일 자동 수집 실행 시각 (서버 로컬 시간 기준)
-    COLLECT_CRON_HOUR: int = 6
+    # pytest 전용 DB. 비워두면 DATABASE_URL의 DB 이름 뒤에 "_test"를 붙여서 쓴다
+    # (예: forward -> forward_test). 테스트는 이 DB를 매 실행마다 드롭/재생성하므로
+    # 절대 DATABASE_URL과 같은 DB를 가리키면 안 된다 (conftest.py가 같으면 실행을 막는다).
+    TEST_DATABASE_URL: str = ""
+
+    # 자동 수집 실행 시각 (서버 로컬 시간 기준). 쉼표로 여러 시각 지정 — 기본은 하루 2회(06시·18시).
+    # APScheduler CronTrigger의 hour 필드에 그대로 전달된다 ("6,18", "0,6,12,18", "*/6" 등).
+    COLLECT_CRON_HOURS: str = "6,18"
     COLLECT_CRON_MINUTE: int = 0
 
     # 로그인 토큰(JWT) 서명용. 실서비스 배포 전 반드시 각자 .env에서 무작위 값으로 교체할 것.

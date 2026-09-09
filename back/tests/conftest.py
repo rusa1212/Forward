@@ -1,12 +1,13 @@
 """pytest 공통 fixture (5주차 우선순위 "API 테스트 보강").
 
-주의: 이 테스트는 .env의 DATABASE_URL이 가리키는 DB의 users/employees/announcements/
-keywords/saved_announcements 테이블 내용을 각 테스트 전에 전부 지운다(clean_db fixture).
-로컬 개발용 DB에서만 실행하세요 — 운영/공유 DB에 대고 실행하면 안 됩니다.
+⚠️ 이 테스트는 전용 테스트 DB를 매 실행마다 드롭/재생성하고, 각 테스트마다 테이블을
+비운다(clean_db fixture). 그래서 **개발용 DATABASE_URL DB는 절대 건드리지 않는다** —
+아래 _resolve_test_db_url()이 TEST_DATABASE_URL(없으면 "<DB이름>_test")을 쓰고,
+그게 DATABASE_URL과 같은 DB를 가리키면 실행 자체를 막는다.
 
-MySQL 전환 노트: SQLite 등 인메모리 DB로 바꾸지 않고 실제 개발용 MySQL/MariaDB에 대고
-테스트를 돌립니다. 이 프로젝트가 MySQL 전용 문법(INSERT ... ON DUPLICATE KEY UPDATE,
-CHECK 제약, utf8mb4 등)을 쓰고 있어서 SQLite로는 같은 동작을 보장할 수 없기 때문입니다.
+MySQL 전환 노트: SQLite 등 인메모리 DB로 바꾸지 않고 실제 MySQL/MariaDB(테스트 DB)에
+대고 테스트한다. 이 프로젝트가 MySQL 전용 문법(INSERT ... ON DUPLICATE KEY UPDATE,
+CHECK 제약, utf8mb4 등)을 쓰기 때문이다.
 """
 import sys
 from pathlib import Path
@@ -15,15 +16,83 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import select, text
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 
-from app.db.models import Employee, User
-from app.db.session import SessionLocal
-from app.main import app
+from app.core.config import settings
+
+
+def _resolve_test_db_url() -> str:
+    """테스트 DB URL을 정하고, 개발 DB와 같으면 즉시 실행을 중단한다."""
+    if not settings.DATABASE_URL:
+        raise pytest.UsageError("DATABASE_URL이 비어 있습니다. back/.env를 설정하세요.")
+
+    main_url = make_url(settings.DATABASE_URL)
+    if settings.TEST_DATABASE_URL:
+        test_url = make_url(settings.TEST_DATABASE_URL)
+    else:
+        test_url = main_url.set(database=f"{main_url.database}_test")
+
+    same_db = (test_url.database, test_url.host, test_url.port) == (
+        main_url.database,
+        main_url.host,
+        main_url.port,
+    )
+    if same_db:
+        raise pytest.UsageError(
+            f"테스트 DB('{test_url.database}')가 DATABASE_URL('{main_url.database}')와 같습니다.\n"
+            "clean_db fixture가 이 DB를 통째로 지웁니다 — 개발 데이터가 날아갑니다.\n"
+            "back/.env에 TEST_DATABASE_URL을 다른 DB로 지정하세요."
+        )
+    return test_url.render_as_string(hide_password=False)
+
+
+def _ensure_test_db_exists(test_db_url: str) -> None:
+    """테스트 DB가 없으면 만든다 (개발 DB에 접속해서 CREATE DATABASE)."""
+    test_db_name = make_url(test_db_url).database
+    admin_engine = create_engine(settings.DATABASE_URL)
+    try:
+        with admin_engine.connect() as conn:
+            conn.execute(
+                text(
+                    f"CREATE DATABASE IF NOT EXISTS `{test_db_name}` "
+                    "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+                )
+            )
+            conn.commit()
+    except Exception as exc:  # pragma: no cover - 환경 문제
+        raise pytest.UsageError(
+            f"테스트 DB '{test_db_name}' 생성 실패: {exc}\n"
+            "계정에 CREATE 권한이 없으면 직접 만들거나 TEST_DATABASE_URL을 지정하세요."
+        )
+    finally:
+        admin_engine.dispose()
+
+
+_TEST_DB_URL = _resolve_test_db_url()
+_ensure_test_db_exists(_TEST_DB_URL)
+
+# 앱 코드가 엔진을 만들기 전에 URL을 테스트 DB로 바꿔놓는다.
+# (app.db.session이 import 시점에 create_engine(settings.DATABASE_URL) 하므로 순서가 중요)
+settings.DATABASE_URL = _TEST_DB_URL
+
+from app.db.models import Base  # noqa: E402
+from app.db.models import Employee, User  # noqa: E402
+from app.db.session import SessionLocal, engine  # noqa: E402
+from app.main import app  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import select  # noqa: E402
+
+# 테스트 세션 시작 시 스키마를 새로 만든다 (models.py 기준). alembic 불필요.
+with engine.begin() as _conn:
+    _conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
+    Base.metadata.drop_all(bind=_conn)
+    Base.metadata.create_all(bind=_conn)
+    _conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
 
 _CLEAN_TABLES = (
     "notification_logs",
+    "alert_settings",
     "saved_announcements",
     "keywords",
     "users",
@@ -34,7 +103,10 @@ _CLEAN_TABLES = (
 
 @pytest.fixture(autouse=True)
 def clean_db():
-    """각 테스트 시작 전에 관련 테이블을 비운다 (FK 순서 걱정 없이 FK 체크를 잠깐 꺼둠)."""
+    """각 테스트 시작 전에 관련 테이블을 비운다 (FK 순서 걱정 없이 FK 체크를 잠깐 꺼둠).
+
+    대상은 전용 테스트 DB다 (conftest 상단에서 DATABASE_URL을 이미 교체했다).
+    """
     db = SessionLocal()
     try:
         db.execute(text("SET FOREIGN_KEY_CHECKS=0"))
