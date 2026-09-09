@@ -2,3 +2,4 @@
 #   .venv\Scripts\pip install -r requirements-dev.txt
 -r requirements.txt
 pytest
+aiosmtpd  # 로컬 SMTP 디버그 서버 (python -m aiosmtpd -n -l localhost:1025) — 이메일 발송 경로 테스트용
