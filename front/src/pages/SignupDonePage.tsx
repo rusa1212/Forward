@@ -14,7 +14,7 @@ export default function SignupDonePage() {
         </div>
         <h2 className="text-xl font-bold text-gray-800 mb-2">회원가입 완료!</h2>
         <p className="text-sm text-gray-500 mb-8">SMS Notice 서비스에 오신 것을 환영합니다.</p>
-        <button onClick={onGoLogin} className="w-full bg-[#1d3557] text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-[#16293f] transition-colors">
+        <button onClick={onGoLogin} className="w-full bg-[#1d1d1f] text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-[#000000] transition-colors">
           로그인하러 가기
         </button>
       </div>

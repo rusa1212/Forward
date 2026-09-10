@@ -50,12 +50,12 @@ export default function SignupPage() {
     <div className="min-h-screen bg-[#f0f2f5] flex items-center justify-center py-10">
       <div className="bg-white rounded-2xl shadow-lg w-[420px] p-8">
         <div className="flex items-center gap-2 mb-8">
-          <div className="w-8 h-8 bg-[#1d3557] rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-[#1d1d1f] rounded-lg flex items-center justify-center">
             <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
           </div>
-          <span className="font-bold text-[#1d3557] text-lg tracking-tight">SMS Notice</span>
+          <span className="font-bold text-[#1d1d1f] text-lg tracking-tight">SMS Notice</span>
         </div>
         <h2 className="text-xl font-bold text-gray-800 mb-1">회원가입</h2>
         <p className="text-xs text-gray-400 mb-6">사번과 이름으로 계정을 만들 수 있습니다</p>
@@ -77,7 +77,7 @@ export default function SignupPage() {
               <input
                 value={empId} onChange={e => { setEmpId(e.target.value); setVerifyState('idle') }}
                 disabled={verified}
-                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#457b9d] focus:ring-2 focus:ring-[#457b9d]/20 transition disabled:bg-gray-100 disabled:text-gray-400"
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#4b4ded] focus:ring-2 focus:ring-[#4b4ded]/20 transition disabled:bg-gray-100 disabled:text-gray-400"
                 placeholder="사번을 입력하세요"
               />
             </div>
@@ -86,7 +86,7 @@ export default function SignupPage() {
               <input
                 value={name} onChange={e => { setName(e.target.value); setVerifyState('idle') }}
                 disabled={verified}
-                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#457b9d] focus:ring-2 focus:ring-[#457b9d]/20 transition disabled:bg-gray-100 disabled:text-gray-400"
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#4b4ded] focus:ring-2 focus:ring-[#4b4ded]/20 transition disabled:bg-gray-100 disabled:text-gray-400"
                 placeholder="이름을 입력하세요"
               />
             </div>
@@ -100,7 +100,7 @@ export default function SignupPage() {
               <button
                 onClick={handleVerify}
                 disabled={!empId.trim() || !name.trim() || verifyState === 'loading'}
-                className="w-full border border-[#1d3557] text-[#1d3557] rounded-xl py-2.5 text-sm font-semibold hover:bg-[#1d3557] hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full border border-[#1d1d1f] text-[#1d1d1f] rounded-xl py-2.5 text-sm font-semibold hover:bg-[#1d1d1f] hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {verifyState === 'loading' ? (
                   <>
@@ -123,20 +123,20 @@ export default function SignupPage() {
               <div>
                 <label className="text-xs font-medium text-gray-500 mb-1.5 block">비밀번호</label>
                 <input type="password" value={pw} onChange={e => setPw(e.target.value)} disabled={!verified}
-                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#457b9d] focus:ring-2 focus:ring-[#457b9d]/20 transition"
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#4b4ded] focus:ring-2 focus:ring-[#4b4ded]/20 transition"
                   placeholder="6자 이상 입력하세요" />
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-500 mb-1.5 block">비밀번호 확인</label>
                 <input type="password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)} disabled={!verified}
-                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 transition ${pwMismatch ? 'border-red-300 focus:border-red-400 focus:ring-red-200/30' : 'border-gray-200 focus:border-[#457b9d] focus:ring-[#457b9d]/20'}`}
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 transition ${pwMismatch ? 'border-red-300 focus:border-red-400 focus:ring-red-200/30' : 'border-gray-200 focus:border-[#4b4ded] focus:ring-[#4b4ded]/20'}`}
                   placeholder="비밀번호를 다시 입력하세요" />
                 {pwMismatch && <p className="text-xs text-red-500 mt-1">비밀번호가 일치하지 않습니다</p>}
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-500 mb-1.5 block">이메일</label>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} disabled={!verified}
-                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#457b9d] focus:ring-2 focus:ring-[#457b9d]/20 transition"
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#4b4ded] focus:ring-2 focus:ring-[#4b4ded]/20 transition"
                   placeholder="알림 수신 이메일 주소" />
               </div>
             </div>
@@ -144,14 +144,14 @@ export default function SignupPage() {
 
           {signupError && <p className="text-xs text-red-500">{signupError}</p>}
           <button onClick={handleSubmit} disabled={!canSubmit || submitting}
-            className="w-full bg-[#1d3557] text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-[#16293f] transition-colors disabled:opacity-40 disabled:cursor-not-allowed mt-1">
+            className="w-full bg-[#1d1d1f] text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-[#000000] transition-colors disabled:opacity-40 disabled:cursor-not-allowed mt-1">
             {submitting ? '가입 처리 중...' : '회원가입'}
           </button>
         </div>
 
         <p className="mt-5 text-center text-xs text-gray-400">
           이미 계정이 있으신가요?{' '}
-          <button onClick={onGoLogin} className="text-[#457b9d] font-semibold hover:underline">로그인</button>
+          <button onClick={onGoLogin} className="text-[#4b4ded] font-semibold hover:underline">로그인</button>
         </p>
       </div>
     </div>

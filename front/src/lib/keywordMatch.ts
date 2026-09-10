@@ -17,15 +17,9 @@ export interface KeywordColor {
 }
 
 /** 값(키워드 문자열) 기반 고정 팔레트 — 등록 순서와 무관하게 같은 키워드는 항상 같은 색이 나온다. */
+/* Forward 핸드오프 스펙 — 키워드 태그는 뉴트럴 그레이 필(#F2F4F7) 단일 스타일 */
 const KEYWORD_COLOR_PALETTE: KeywordColor[] = [
-  { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100' },
-  { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-100' },
-  { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100' },
-  { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-100' },
-  { bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-100' },
-  { bg: 'bg-teal-50', text: 'text-teal-600', border: 'border-teal-100' },
-  { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-100' },
-  { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-100' },
+  { bg: 'bg-[#f2f4f7]', text: 'text-body', border: 'border-transparent' },
 ]
 
 export function getKeywordColor(keyword: string): KeywordColor {

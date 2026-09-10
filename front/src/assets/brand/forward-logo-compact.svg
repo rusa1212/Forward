@@ -1,0 +1,10 @@
+<svg width="900" height="150" viewBox="0 0 900 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(28 24) scale(1.95)">
+    <path d="M8 6H44.2C46.5 6 47.7 8.7 46.1 10.4L39.5 17.2C38.8 17.9 37.9 18.3 36.9 18.3H8C5.8 18.3 4 16.5 4 14.3V10C4 7.8 5.8 6 8 6Z" fill="#315CFF"></path>
+    <path d="M8 21.6H30.2C32.4 21.6 33.7 24.2 32.2 25.9L26.4 32.3C25.7 33.1 24.7 33.5 23.6 33.5H8C5.8 33.5 4 31.7 4 29.5V25.6C4 23.4 5.8 21.6 8 21.6Z" fill="#315CFF"></path>
+    <path d="M8 36.8H18.2C20.6 36.8 21.8 39.7 20 41.4L10.8 50.2C8.2 52.7 4 50.8 4 47.2V40.8C4 38.6 5.8 36.8 8 36.8Z" fill="#315CFF"></path>
+  </g>
+  <text x="160" y="94" fill="#0F1F3D" font-family="Inter, Pretendard, Arial, sans-serif" font-size="64" font-weight="750" letter-spacing="-1.8">Forward</text>
+  <line x1="435" y1="53" x2="435" y2="101" stroke="#D0D5DD" stroke-width="2"></line>
+  <text x="470" y="91" fill="#667085" font-family="Inter, Pretendard, Arial, sans-serif" font-size="31" font-weight="500">R&amp;D Monitor</text>
+</svg>

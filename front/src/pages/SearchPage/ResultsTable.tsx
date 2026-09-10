@@ -1,65 +1,73 @@
+import { Star } from 'lucide-react'
 import StatusBadge from '@/components/common/StatusBadge'
-import DDayBadge from '@/components/common/DDayBadge'
 import { getKeywordColor, matchKeywords } from '@/lib/keywordMatch'
 import type { Announcement, Keyword } from '@/types'
 
-export default function ResultsTable({ rows, favorites, keywords, onOpenDetail }: {
+const GRID = 'grid grid-cols-[minmax(0,1fr)_170px_110px_76px_120px_40px] items-center gap-2'
+
+export default function ResultsTable({ rows, favorites, keywords, onOpenDetail, onToggleFavorite }: {
   rows: Announcement[]
   favorites: Set<string>
   keywords: Keyword[]
   onOpenDetail: (id: string) => void
+  onToggleFavorite: (id: string) => void
 }) {
   const keywordNames = keywords.map(k => k.name)
 
   return (
-    <table className="w-full">
-      <thead>
-        <tr className="bg-gray-50/80 border-b border-gray-100">
-          <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500">공고명</th>
-          <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 w-28">기관명</th>
-          <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 w-24">출처</th>
-          <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 w-20">상태</th>
-          <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 w-24">공고일</th>
-          <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 w-24">마감일</th>
-          <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 w-16">D-Day</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((a, i) => (
-          <tr
-            key={a.id}
-            onClick={() => onOpenDetail(a.id)}
-            className={`hover:bg-blue-50/30 cursor-pointer transition-colors border-b border-gray-50 ${i === rows.length - 1 ? 'border-b-0' : ''}`}
+    <div className="min-w-[860px]">
+      {/* 컬럼 헤더 */}
+      <div className={`${GRID} px-7 h-10 bg-thead border-b border-line`}>
+        <span className="text-xs font-semibold text-muted2">공고명</span>
+        <span className="text-xs font-semibold text-muted2">기관명</span>
+        <span className="text-xs font-semibold text-muted2">출처</span>
+        <span className="text-xs font-semibold text-muted2">상태</span>
+        <span className="text-xs font-semibold text-muted2 text-right">마감</span>
+        <span />
+      </div>
+
+      {rows.map((a, i) => (
+        <div
+          key={a.id}
+          className={`${GRID} px-7 py-[13px] cursor-pointer hover:bg-subtle transition-colors ${i < rows.length - 1 ? 'border-b border-line' : ''}`}
+          onClick={() => onOpenDetail(a.id)}
+        >
+          <div className="min-w-0 pr-4">
+            <p className="text-[15px] font-semibold text-strong truncate">{a.title}</p>
+            <div className="mt-1 flex items-center gap-1.5">
+              {matchKeywords(a, keywordNames).slice(0, 3).map(k => {
+                const c = getKeywordColor(k)
+                return (
+                  <span key={k} className={`text-[11px] font-medium px-2 py-0.5 rounded ${c.bg} ${c.text} whitespace-nowrap`}>{k}</span>
+                )
+              })}
+            </div>
+          </div>
+          <span className="text-[13px] text-body truncate pr-2">{a.org}</span>
+          <span className="text-xs text-muted2 truncate">{a.announcementType}</span>
+          <StatusBadge status={a.status} />
+          <span className="text-[13px] text-body text-right whitespace-nowrap tabular-nums">
+            ~{a.deadline}
+            {a.dday !== null && a.dday >= 0 && (
+              <span className={a.dday <= 1 ? 'text-danger font-semibold' : a.dday <= 3 ? 'text-warning font-semibold' : ''}>
+                {' '}· D-{a.dday === 0 ? 'day' : a.dday}
+              </span>
+            )}
+          </span>
+          <button
+            onClick={e => { e.stopPropagation(); onToggleFavorite(a.id) }}
+            aria-label={favorites.has(a.id) ? '저장 해제' : '공고 저장'}
+            className="pressable justify-self-end p-1 group"
           >
-            <td className="px-5 py-3.5">
-              <div className="flex items-center gap-1.5">
-                {favorites.has(a.id) && (
-                  <svg className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                )}
-                <p className="text-sm text-gray-800 font-medium">{a.title}</p>
-              </div>
-              <div className="flex gap-1 mt-1 ml-0.5">
-                {matchKeywords(a, keywordNames).map(k => {
-                  const c = getKeywordColor(k)
-                  return (
-                    <span key={k} className={`text-[10px] ${c.bg} ${c.text} px-1.5 py-0.5 rounded border ${c.border}`}>{k}</span>
-                  )
-                })}
-              </div>
-            </td>
-            <td className="px-4 py-3.5 text-sm text-gray-600">{a.org}</td>
-            <td className="px-4 py-3.5 text-center">
-              <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{a.announcementType}</span>
-            </td>
-            <td className="px-4 py-3.5 text-center"><StatusBadge status={a.status} /></td>
-            <td className="px-4 py-3.5 text-center text-xs text-gray-400">{a.postedDate}</td>
-            <td className="px-4 py-3.5 text-center text-xs text-gray-500">{a.deadline}</td>
-            <td className="px-4 py-3.5 text-center"><DDayBadge dday={a.dday} /></td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+            <Star
+              className={`w-[18px] h-[18px] transition-colors ${
+                favorites.has(a.id) ? 'text-star fill-star' : 'text-faint group-hover:text-warning'
+              }`}
+              strokeWidth={1.8}
+            />
+          </button>
+        </div>
+      ))}
+    </div>
   )
 }

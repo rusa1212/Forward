@@ -3,3 +3,6 @@ __pycache__/
 .venv/
 venv/
 .env
+
+# 로컬 SQLite 프리뷰 DB
+dev.db

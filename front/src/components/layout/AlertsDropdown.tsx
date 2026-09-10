@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'motion/react'
 
 const ALERTS = [
   { title: '[신규] AI 기반 민원 자동처리 시스템 개발', time: '5분 전', keyword: 'AI', unread: true },
@@ -11,30 +12,37 @@ export default function AlertsDropdown({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
 
   return (
-    <div className="absolute top-11 right-10 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-        <span className="font-semibold text-gray-800 text-sm">알림</span>
-        <button className="text-xs text-[#457b9d] hover:underline">모두 읽음</button>
+    <motion.div
+      // apple-design: 트리거(벨)에서 피어나도록 origin 고정 + 스프링(바운스 없음)
+      initial={{ opacity: 0, scale: 0.96, y: -4 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+      style={{ transformOrigin: 'top right' }}
+      className="absolute top-12 right-0 w-80 bg-surface rounded-xl border border-line shadow-float z-50 overflow-hidden"
+    >
+      <div className="px-4 py-3 border-b border-divider flex items-center justify-between">
+        <span className="font-semibold text-ink text-sm">알림</span>
+        <button className="text-xs text-primary hover:opacity-80">모두 읽음</button>
       </div>
-      <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
+      <div className="divide-y divide-divider max-h-72 overflow-y-auto">
         {ALERTS.map((a, i) => (
-          <div key={i} className={`px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors ${a.unread ? 'bg-blue-50/40' : ''}`}>
+          <div key={i} className={`px-4 py-3 hover:bg-[#f7f7f8] cursor-pointer transition-colors ${a.unread ? 'bg-accent/40' : ''}`}>
             <div className="flex items-start gap-2">
-              {a.unread && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5 flex-shrink-0" />}
+              {a.unread && <span className="w-1.5 h-1.5 bg-primary rounded-full mt-1.5 flex-shrink-0" />}
               <div className={a.unread ? '' : 'ml-3.5'}>
-                <p className="text-xs text-gray-800 font-medium leading-relaxed">{a.title}</p>
+                <p className="text-xs text-ink font-medium leading-relaxed">{a.title}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{a.keyword}</span>
-                  <span className="text-[10px] text-gray-400">{a.time}</span>
+                  <span className="text-[10px] bg-fill text-ink-secondary font-medium px-1.5 py-0.5 rounded-full">{a.keyword}</span>
+                  <span className="text-[10px] text-ink-tertiary">{a.time}</span>
                 </div>
               </div>
             </div>
           </div>
         ))}
       </div>
-      <div className="px-4 py-2.5 border-t border-gray-100 text-center">
-        <button onClick={() => { navigate('/mypage'); onClose() }} className="text-xs text-[#457b9d] hover:underline">알림 설정 보기</button>
+      <div className="px-4 py-2.5 border-t border-divider text-center">
+        <button onClick={() => { navigate('/mypage/alerts'); onClose() }} className="text-xs text-primary hover:opacity-80">알림 설정 보기</button>
       </div>
-    </div>
+    </motion.div>
   )
 }

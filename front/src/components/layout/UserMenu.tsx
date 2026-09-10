@@ -1,13 +1,15 @@
 import { useNavigate } from 'react-router-dom'
-import { getName, isAdmin, logout } from '@/lib/auth'
+import { LogOut } from 'lucide-react'
+import { motion } from 'motion/react'
+import { isAdmin, logout } from '@/lib/auth'
 
-export default function UserMenu({ open, onToggle, onClose }: {
+/** 드롭다운 전용 — 트리거(아바타 버튼)는 Header가 렌더링한다. */
+export default function UserMenu({ open, onClose }: {
   open: boolean
   onToggle: () => void
   onClose: () => void
 }) {
   const navigate = useNavigate()
-  const name = getName()
   const admin = isAdmin()
 
   const handleLogout = () => {
@@ -16,28 +18,31 @@ export default function UserMenu({ open, onToggle, onClose }: {
     navigate('/login', { replace: true })
   }
 
-  return (
-    <>
-      <button onClick={onToggle} className="flex items-center gap-2 hover:bg-white/10 rounded-lg px-2.5 py-1.5 transition-colors">
-        <div className="w-7 h-7 bg-[#457b9d] rounded-full flex items-center justify-center text-white text-xs font-bold">{name.charAt(0)}</div>
-        <span className="text-sm text-white font-medium">{name}</span>
-        <svg className="w-3 h-3 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+  if (!open) return null
 
-      {open && (
-        <div className="absolute top-11 right-0 w-40 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden py-1">
-          {!admin && (
-            <button onClick={() => { navigate('/mypage'); onClose() }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors">마이페이지</button>
-          )}
-          {admin && (
-            <button onClick={() => { navigate('/admin'); onClose() }} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors">관리자 페이지</button>
-          )}
-          <div className="h-px bg-gray-100 mx-2" />
-          <button onClick={handleLogout} className="w-full px-4 py-2.5 text-left text-sm text-red-500 hover:bg-red-50 transition-colors">로그아웃</button>
-        </div>
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96, y: -4 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+      style={{ transformOrigin: 'top right' }}
+      className="absolute top-12 right-0 w-44 bg-surface rounded-xl border border-line shadow-float z-50 overflow-hidden py-1"
+    >
+      {!admin && (
+        <button onClick={() => { navigate('/mypage'); onClose() }} className="w-full px-4 py-2.5 text-left text-sm text-strong hover:bg-subtle transition-colors">
+          마이페이지
+        </button>
       )}
-    </>
+      {admin && (
+        <button onClick={() => { navigate('/admin'); onClose() }} className="w-full px-4 py-2.5 text-left text-sm text-strong hover:bg-subtle transition-colors">
+          관리자 페이지
+        </button>
+      )}
+      <div className="h-px bg-line mx-2" />
+      <button onClick={handleLogout} className="w-full px-4 py-2.5 text-left text-sm text-danger hover:bg-[rgba(240,68,56,0.06)] transition-colors flex items-center gap-2">
+        <LogOut className="w-3.5 h-3.5" strokeWidth={1.8} />
+        로그아웃
+      </button>
+    </motion.div>
   )
 }
