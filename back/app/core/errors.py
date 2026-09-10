@@ -3,10 +3,14 @@
 
 {"success": false, "error": {"code": "DUPLICATE_EMAIL", "message": "이미 등록된 이메일입니다."}}
 """
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException  # fastapi.HTTPException의 부모 클래스 — 라우팅 404 등도 여기서 잡힘
+
+logger = logging.getLogger("app.errors")
 
 
 def error_body(code: str, message: str) -> dict:
@@ -37,4 +41,7 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception):
+        # 이전에는 500 에러가 나도 서버 콘솔/로그에 아무 흔적이 안 남아 원인 추적이 불가능했다.
+        # (예: DB 연결 끊김, 코드 버그로 인한 예상 못한 예외) — 스택트레이스까지 남기도록 보강.
+        logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
         return JSONResponse(status_code=500, content=error_body("INTERNAL_ERROR", "서버 내부 오류가 발생했습니다."))

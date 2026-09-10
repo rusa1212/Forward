@@ -16,7 +16,7 @@ import uuid
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import case, func, literal, select
+from sqlalchemy import case, func, literal, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
@@ -104,6 +104,9 @@ def _serialize(row: Announcement) -> dict:
 @router.get("/announcements")
 def list_announcements(
     q: str | None = Query(None, description="제목 검색어 (부분 일치)"),
+    keywords: list[str] | None = Query(
+        None, description="키워드 매칭 모드 — 여러 개면 OR로 매칭 (제목에 하나라도 포함되면 포함). q와 같이 쓰면 AND."
+    ),
     status: str | None = Query(None, description="공고 상태 필터 (저장된 원본 값과 정확히 일치해야 함)"),
     statusLabel: str | None = Query(
         None, description=f"정규화된 상태 필터: {', '.join(STATUS_LABELS)} 중 하나"
@@ -125,6 +128,11 @@ def list_announcements(
     conditions = []
     if q:
         conditions.append(Announcement.title.ilike(f"%{q}%"))
+    keyword_terms = [kw.strip() for kw in (keywords or []) if kw.strip()]
+    if keyword_terms:
+        # dashboard.py의 매칭 조건(OR ilike)과 동일한 로직 — 대시보드 "N건 매칭"의
+        # 전체보기가 검색 결과와 정확히 같은 집합을 보여주도록 맞춘다.
+        conditions.append(or_(*(Announcement.title.ilike(f"%{kw}%") for kw in keyword_terms)))
     if status:
         conditions.append(Announcement.status == status)
     if statusLabel:

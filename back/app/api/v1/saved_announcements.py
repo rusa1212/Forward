@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.v1.announcements import _status_label
 from app.api.v1.auth import get_current_user
 from app.core.errors import AppError
 from app.db.models import Announcement, SavedAnnouncement, User
@@ -26,6 +27,7 @@ def _serialize(row: SavedAnnouncement, announcement: Announcement) -> dict:
             "title": announcement.title,
             "department": announcement.department,
             "status": announcement.status,
+            "statusLabel": _status_label(announcement.reception_start, announcement.reception_end),
             "receptionStart": announcement.reception_start,
             "receptionEnd": announcement.reception_end,
             "detailUrl": announcement.detail_url,

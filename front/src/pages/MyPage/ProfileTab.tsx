@@ -1,118 +1,200 @@
-import { useNavigate } from 'react-router-dom'
-import { Bell, Bookmark, ChevronRight, Tag } from 'lucide-react'
-import { getName } from '@/lib/auth'
-import { useKeywordsContext } from '@/contexts/KeywordsContext'
-import { useFavoritesContext } from '@/contexts/FavoritesContext'
-import type { MyTab } from '@/types'
+import { useEffect, useState } from 'react'
+import { useMe } from '@/hooks/useMe'
+import { MIN_PASSWORD_LENGTH } from '@/lib/me'
 
-export default function ProfileTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }) {
-  const navigate = useNavigate()
-  const { keywords } = useKeywordsContext()
-  const { favorites } = useFavoritesContext()
-  const name = getName() || '사용자'
-  const dashboardOn = keywords.filter(k => k.dashboardAlert).length
-  const emailOn = keywords.filter(k => k.emailAlert).length
+/** 값이 비어 있을 때 표에 표시할 문구 */
+const EMPTY = '-'
 
-  const usage = [
-    { icon: Tag, label: '등록 키워드', value: `${keywords.length}개`, onClick: () => onGoTab('keywords') },
-    { icon: Bookmark, label: '저장 공고', value: `${favorites.size}건`, onClick: () => navigate('/search') },
-    { icon: Bell, label: '알림 설정', value: `${dashboardOn + emailOn > 0 ? '사용 중' : '꺼짐'}`, onClick: () => onGoTab('alerts') },
+export default function ProfileTab() {
+  const { me, loading, error, pending, refresh, saveEmail, savePassword } = useMe()
+
+  /** view | email(이메일 수정) | password(비밀번호 변경) — 한 번에 하나만 연다 */
+  const [mode, setMode] = useState<'view' | 'email' | 'password'>('view')
+  const [formError, setFormError] = useState('')
+  const [doneMsg, setDoneMsg] = useState('')
+
+  const [emailInput, setEmailInput] = useState('')
+  const [currentPw, setCurrentPw] = useState('')
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+
+  // 조회가 끝나거나 갱신되면 수정 폼의 초기값을 서버 값으로 맞춘다
+  useEffect(() => {
+    if (me) setEmailInput(me.email)
+  }, [me])
+
+  const closeForm = () => {
+    setMode('view')
+    setFormError('')
+    setCurrentPw('')
+    setNewPw('')
+    setConfirmPw('')
+    if (me) setEmailInput(me.email)
+  }
+
+  const openForm = (next: 'email' | 'password') => {
+    closeForm()
+    setDoneMsg('')
+    setMode(next)
+  }
+
+  const showDone = (message: string) => {
+    setDoneMsg(message)
+    window.setTimeout(() => setDoneMsg(''), 3000)
+  }
+
+  const handleSaveEmail = async () => {
+    const failure = await saveEmail(emailInput)
+    if (failure) {
+      setFormError(failure)
+      return
+    }
+    closeForm()
+    showDone('이메일이 변경되었습니다.')
+  }
+
+  const handleSavePassword = async () => {
+    const failure = await savePassword(currentPw, newPw, confirmPw, MIN_PASSWORD_LENGTH)
+    if (failure) {
+      setFormError(failure)
+      return
+    }
+    closeForm()
+    showDone('비밀번호가 변경되었습니다.')
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-line p-6 max-w-lg text-sm text-gray-400">
+        내 정보를 불러오는 중입니다...
+      </div>
+    )
+  }
+
+  if (error || !me) {
+    return (
+      <div className="bg-white rounded-xl border border-line p-6 max-w-lg">
+        <p className="text-sm text-red-600">{error || '내 정보를 불러오지 못했습니다.'}</p>
+        <button onClick={refresh} className="mt-3 border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors">
+          다시 시도
+        </button>
+      </div>
+    )
+  }
+
+  const displayName = me.name ?? me.empId
+  const rows: [string, string][] = [
+    ['이름', me.name ?? EMPTY],
+    ['부서', me.department ?? EMPTY],
+    ['사번', me.empId],
+    ['이메일', me.email],
   ]
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_minmax(0,1fr)] gap-5 items-start">
-      {/* 프로필 카드 */}
-      <div className="bg-surface border border-line rounded-xl px-7 py-6">
-        <div className="flex items-center gap-4 pb-5 border-b border-line">
-          <div className="w-12 h-12 rounded-full bg-soft text-primary2 text-lg font-bold flex items-center justify-center">
-            {name.charAt(0)}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-strong">{name}</h3>
-              <span className="px-2 py-0.5 rounded-full bg-[#f2f4f7] text-sub text-[11px] font-semibold whitespace-nowrap">일반 계정</span>
-            </div>
-            <p className="mt-0.5 text-[13px] text-muted2">kim@company.kr</p>
-          </div>
+    <div className="bg-white rounded-xl border border-line p-6 max-w-lg">
+      <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
+        <div className="w-14 h-14 bg-[#101828] rounded-2xl flex items-center justify-center text-white text-xl font-bold shadow-md">
+          {displayName.slice(0, 1)}
         </div>
-
-        <div className="py-2">
-          {[
-            { label: '이름', value: name, roster: true },
-            { label: '사번', value: '20230001', roster: true },
-            { label: '부서', value: '연구기획팀', roster: true },
-            { label: '아이디', value: 'kim_manager' },
-          ].map(item => (
-            <div key={item.label} className="flex items-center py-3 border-b border-line last:border-0">
-              <span className="w-20 shrink-0 text-xs font-medium text-muted2">{item.label}</span>
-              <span className="text-sm font-medium text-strong">{item.value}</span>
-              {item.roster && (
-                <span className="ml-2 px-1.5 py-0.5 rounded bg-[#f2f4f7] text-muted2 text-[10px] font-medium whitespace-nowrap">명부 기준</span>
-              )}
-            </div>
-          ))}
+        <div>
+          <h3 className="font-bold text-gray-800">{displayName}</h3>
+          <p className="text-sm text-gray-400">{me.email}</p>
         </div>
+      </div>
 
-        <div className="pt-3 space-y-2">
-          <label className="block text-xs font-medium text-muted2">이메일</label>
-          <div className="flex items-center gap-2">
+      <div className="space-y-4">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-center py-2 border-b border-gray-50 last:border-0">
+            <span className="text-xs text-gray-400 font-medium w-20 flex-shrink-0">{label}</span>
+            <span className="text-sm text-gray-800 font-medium">{value}</span>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-4 text-[11px] text-gray-400">
+        이름·부서·사번은 사원 명부에서 가져오는 값이라 직접 수정할 수 없습니다. 변경이 필요하면 관리자에게 문의해주세요.
+      </p>
+
+      {mode === 'view' && (
+        <div className="mt-6 flex items-center gap-3">
+          <button onClick={() => openForm('email')} className="bg-[#101828] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#1F3FAF] transition-colors">
+            정보 수정
+          </button>
+          <button onClick={() => openForm('password')} className="border border-gray-200 text-gray-600 px-5 py-2 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors">
+            비밀번호 변경
+          </button>
+          {doneMsg && (
+            <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              {doneMsg}
+            </span>
+          )}
+        </div>
+      )}
+
+      {mode === 'email' && (
+        <form
+          className="mt-6 pt-5 border-t border-gray-100 space-y-3"
+          onSubmit={e => { e.preventDefault(); handleSaveEmail() }}
+        >
+          <h4 className="text-sm font-semibold text-gray-800">정보 수정</h4>
+          <label className="block">
+            <span className="text-xs text-gray-400 font-medium">이메일</span>
             <input
-              defaultValue="kim@company.kr"
-              className="flex-1 h-[42px] px-3.5 bg-white border border-line rounded-[10px] text-sm text-strong focus:outline-none focus:border-primary2 focus:ring-2 focus:ring-primary2/20 transition-all"
+              type="email"
+              value={emailInput}
+              onChange={e => setEmailInput(e.target.value)}
+              autoFocus
+              className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#315cff]"
             />
-            <button className="pressable h-[42px] px-5 rounded-[10px] bg-primary2 hover:bg-primary-hover text-white text-sm font-semibold transition-colors shrink-0">
-              저장
+          </label>
+          {formError && <p className="text-xs text-red-600">{formError}</p>}
+          <div className="flex gap-2 pt-1">
+            <button type="submit" disabled={pending} className="bg-[#101828] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#1F3FAF] transition-colors disabled:opacity-50">
+              {pending ? '저장 중...' : '저장'}
+            </button>
+            <button type="button" onClick={closeForm} className="border border-gray-200 text-gray-600 px-5 py-2 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors">
+              취소
             </button>
           </div>
-          <p className="text-[11px] text-muted2">키워드 매칭 알림이 이 주소로 발송됩니다.</p>
-        </div>
-      </div>
+        </form>
+      )}
 
-      {/* 우측 모듈 */}
-      <div className="space-y-5">
-        <div className="bg-surface border border-line rounded-xl px-7 py-5">
-          <h3 className="text-[15px] font-bold text-strong">이용 현황</h3>
-          <div className="mt-2">
-            {usage.map(({ icon: Icon, label, value, onClick }) => (
-              <button
-                key={label}
-                onClick={onClick}
-                className="w-full flex items-center justify-between py-3 border-b border-line last:border-0 text-left hover:bg-subtle -mx-2 px-2 rounded-lg transition-colors"
-              >
-                <span className="flex items-center gap-2.5">
-                  <Icon className="w-4 h-4 text-primary2" strokeWidth={1.8} />
-                  <span className="text-sm text-body">{label}</span>
-                </span>
-                <span className="flex items-center gap-1 text-sm font-semibold text-strong whitespace-nowrap">
-                  {value}
-                  <ChevronRight className="w-3.5 h-3.5 text-faint" strokeWidth={2} />
-                </span>
-              </button>
-            ))}
+      {mode === 'password' && (
+        <form
+          className="mt-6 pt-5 border-t border-gray-100 space-y-3"
+          onSubmit={e => { e.preventDefault(); handleSavePassword() }}
+        >
+          <h4 className="text-sm font-semibold text-gray-800">비밀번호 변경</h4>
+          {([
+            ['현재 비밀번호', currentPw, setCurrentPw, 'current-password'],
+            ['새 비밀번호', newPw, setNewPw, 'new-password'],
+            ['새 비밀번호 확인', confirmPw, setConfirmPw, 'new-password'],
+          ] as const).map(([label, value, setValue, autoComplete], i) => (
+            <label key={label} className="block">
+              <span className="text-xs text-gray-400 font-medium">{label}</span>
+              <input
+                type="password"
+                value={value}
+                onChange={e => setValue(e.target.value)}
+                autoComplete={autoComplete}
+                autoFocus={i === 0}
+                className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#315cff]"
+              />
+            </label>
+          ))}
+          <p className="text-[11px] text-gray-400">새 비밀번호는 {MIN_PASSWORD_LENGTH}자 이상이어야 합니다.</p>
+          {formError && <p className="text-xs text-red-600">{formError}</p>}
+          <div className="flex gap-2 pt-1">
+            <button type="submit" disabled={pending} className="bg-[#101828] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#1F3FAF] transition-colors disabled:opacity-50">
+              {pending ? '변경 중...' : '변경'}
+            </button>
+            <button type="button" onClick={closeForm} className="border border-gray-200 text-gray-600 px-5 py-2 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors">
+              취소
+            </button>
           </div>
-        </div>
-
-        <div className="bg-surface border border-line rounded-xl px-7 py-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-[15px] font-bold text-strong">알림 요약</h3>
-            <button onClick={() => onGoTab('alerts')} className="text-xs font-medium text-primary2 hover:text-primary-hover">변경 ›</button>
-          </div>
-          <ul className="mt-3 space-y-2 text-[13px] text-body">
-            <li className="flex justify-between">
-              <span>대시보드 알림 키워드</span>
-              <span className="font-semibold text-strong tabular-nums whitespace-nowrap">{dashboardOn}개</span>
-            </li>
-            <li className="flex justify-between">
-              <span>이메일 알림 키워드</span>
-              <span className="font-semibold text-strong tabular-nums whitespace-nowrap">{emailOn}개</span>
-            </li>
-            <li className="flex justify-between">
-              <span>발송 시간</span>
-              <span className="font-semibold text-strong whitespace-nowrap">매일 09:00</span>
-            </li>
-          </ul>
-        </div>
-      </div>
+        </form>
+      )}
     </div>
   )
 }

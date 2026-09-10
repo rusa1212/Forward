@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Search } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { listAnnouncements } from '@/lib/announcements'
 import { SORT_OPTIONS, STATUS_TYPES } from '@/constants'
@@ -16,6 +17,13 @@ export default function SearchPage() {
   const { favorites, toggleFavorite } = useFavoritesContext()
   const { keywords } = useKeywordsContext()
   const { openDetail } = useDetailModal()
+  const [searchParams] = useSearchParams()
+
+  // 대시보드 "매칭된 공고 전체보기"(?matched=1)로 들어온 경우 — 내 키워드 전체를
+  // OR로 매칭한 결과를 보여준다. 진입 시 한 번만 확인하고, 이후엔 화면 안의
+  // "전체 검색으로 전환" 버튼으로만 끈다.
+  const [matchedMode, setMatchedMode] = useState(() => searchParams.get('matched') === '1')
+
   const [keyword, setKeyword] = useState('')
   const [query, setQuery] = useState('')
   const [selectedStatus, setSelectedStatus] = useState<'전체' | StatusType>('전체')
@@ -28,12 +36,15 @@ export default function SearchPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [reloadTick, setReloadTick] = useState(0)
 
+  const keywordNames = keywords.map(k => k.name)
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setErrorMsg('')
     listAnnouncements({
-      q: query || undefined,
+      q: matchedMode ? undefined : (query || undefined),
+      keywords: matchedMode ? keywordNames : undefined,
       statusLabel: selectedStatus === '전체' ? undefined : selectedStatus,
       sort,
       page: currentPage,
@@ -49,20 +60,28 @@ export default function SearchPage() {
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [query, selectedStatus, sort, currentPage, reloadTick])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchedMode, query, selectedStatus, sort, currentPage, reloadTick])
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const runSearch = () => {
+    setMatchedMode(false)
     setQuery(keyword.trim())
     setCurrentPage(1)
   }
 
   const resetFilters = () => {
+    setMatchedMode(false)
     setKeyword('')
     setQuery('')
     setSelectedStatus('전체')
     setSort('latest')
+    setCurrentPage(1)
+  }
+
+  const exitMatchedMode = () => {
+    setMatchedMode(false)
     setCurrentPage(1)
   }
 
@@ -149,10 +168,31 @@ export default function SearchPage() {
         </div>
       </div>
 
+      {/* 매칭 모드 배너 — 대시보드 "전체 보기"로 진입한 경우 */}
+      {matchedMode && (
+        <div className="rise flex items-center gap-3 px-4 py-3 bg-soft rounded-[10px]">
+          <span className="flex-1 text-[13px] text-primary2">
+            내 구독 키워드 <strong className="font-bold">{keywordNames.join(', ') || '없음'}</strong>에 매칭된 공고를 보고 있습니다
+          </span>
+          <button
+            onClick={exitMatchedMode}
+            className="pressable shrink-0 flex items-center gap-1 text-xs font-semibold text-primary2 hover:text-primary-hover transition-colors"
+          >
+            <X className="w-3 h-3" strokeWidth={2.4} />
+            전체 검색으로 전환
+          </button>
+        </div>
+      )}
+
       {/* 결과 카드 */}
       <div className="rise rise-3 bg-surface border border-line rounded-xl overflow-hidden">
         <div className="px-7 py-4 border-b border-line flex items-center justify-between">
-          {hasSearched ? (
+          {matchedMode ? (
+            <span className="text-sm text-body">
+              내 키워드 매칭 공고 <strong className="text-base text-strong font-bold tabular-nums">{total}</strong>
+              <span className="whitespace-nowrap">건</span>
+            </span>
+          ) : hasSearched ? (
             <span className="text-sm text-body">
               <strong className="text-strong font-bold">"{query}"</strong> 검색 결과{' '}
               <strong className="text-strong font-bold tabular-nums">{total}</strong>

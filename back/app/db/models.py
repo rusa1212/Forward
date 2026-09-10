@@ -22,6 +22,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -123,6 +124,83 @@ class Keyword(Base):
         nullable=False,
     )
     keyword: Mapped[str] = mapped_column(String(50), nullable=False)
+    # 알림 설정 (docs/fe/alert-settings-API-제안.md 3절) — 키워드 수명과 같이 가는 값이라
+    # 별도 테이블 대신 컬럼으로 둔다. 기본값은 화면 기본값(대시보드 on / 이메일 off)과 동일.
+    dashboard_alert: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("1"))
+    email_alert: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("0"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
+    )
+
+
+class AlertSetting(Base):
+    """사용자별 알림 설정 — 마이페이지 AlertsTab의 이메일 발송 주기 + 저장공고 마감임박 알림.
+
+    사용자 1명당 1행(PK=user_id)이라 UNIQUE 제약이 따로 필요 없다. 행이 없는 사용자는
+    아래 기본값으로 취급한다(API가 GET 시 기본값 객체를 만들어 돌려준다) — 회원가입 시
+    미리 만들 필요도, 기존 가입자 마이그레이션도 필요 없다.
+    """
+    __tablename__ = "alert_settings"
+    __table_args__ = (
+        CheckConstraint("deadline_alert_days IN (7, 3, 1)", name="alert_settings_deadline_alert_days_check"),
+        _MYSQL_TABLE_ARGS,
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        CHAR(36),
+        ForeignKey("users.id", name="fk_alert_settings_user_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    email_frequency: Mapped[str] = mapped_column(String(10), nullable=False, server_default=text("'daily'"))
+    deadline_alert_days: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("7"))
+    deadline_dashboard_alert: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("1"))
+    deadline_email_alert: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("0"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"),
+    )
+
+
+class NotificationLog(Base):
+    """알림 이력 (5주차 우선순위 P1 "알림 저장 구조").
+
+    키워드 매칭/마감임박 알림이 실제로 발생했을 때 남기는 기록. 이 테이블에 쌓는 로직(자동화
+    파이프라인)은 별도 작업이고, 이 모델과 API는 저장/조회/읽음 처리만 담당한다.
+    같은 유저에게 같은 공고로 같은 유형의 알림이 중복 저장되지 않도록 UNIQUE 제약을 건다
+    (db-design.md 2.3절 NOTIFICATION_LOGS 참고).
+    """
+    __tablename__ = "notification_logs"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "announcement_id", "notify_type",
+            name="notification_logs_user_announcement_type_key",
+        ),
+        Index("idx_notification_logs_user_created", "user_id", "created_at"),
+        _MYSQL_TABLE_ARGS,
+    )
+
+    id: Mapped[str] = mapped_column(CHAR(36), primary_key=True, default=_uuid_str)
+    user_id: Mapped[str] = mapped_column(
+        CHAR(36),
+        ForeignKey("users.id", name="fk_notification_logs_user_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    announcement_id: Mapped[str | None] = mapped_column(
+        CHAR(36),
+        ForeignKey("announcements.id", name="fk_notification_logs_announcement_id", ondelete="CASCADE"),
+    )
+    keyword_id: Mapped[str | None] = mapped_column(
+        CHAR(36),
+        ForeignKey("keywords.id", name="fk_notification_logs_keyword_id", ondelete="SET NULL"),
+    )
+    notify_type: Mapped[str] = mapped_column(String(30), nullable=False)  # "신규매칭" | "마감임박"
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("0"))
+    # 이메일 발송 완료 시각. NULL이면 아직 이메일 발송 전(또는 미대상)이라는 뜻 —
+    # app/services/notifier.py가 이 값이 비어있는 알림만 골라 이메일로 보내고 채워 넣는다.
+    # is_read(화면에서 읽음)와는 별개 — 이메일은 안 보냈지만 화면에서 이미 읽었을 수도 있음.
+    emailed_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
     )

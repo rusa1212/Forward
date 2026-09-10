@@ -19,8 +19,8 @@ export default function ResultsTable({ rows, favorites, keywords, onOpenDetail, 
       {/* 컬럼 헤더 */}
       <div className={`${GRID} px-7 h-10 bg-thead border-b border-line`}>
         <span className="text-xs font-semibold text-muted2">공고명</span>
-        <span className="text-xs font-semibold text-muted2">기관명</span>
-        <span className="text-xs font-semibold text-muted2">출처</span>
+        <span className="text-xs font-semibold text-muted2">소관부처</span>
+        <span className="text-xs font-semibold text-muted2">공고기관명</span>
         <span className="text-xs font-semibold text-muted2">상태</span>
         <span className="text-xs font-semibold text-muted2 text-right">마감</span>
         <span />

@@ -56,7 +56,7 @@ export default function MyPage() {
       </div>
 
       <div className="rise rise-2">
-        {tab === 'profile' && <ProfileTab onGoTab={goTab} />}
+        {tab === 'profile' && <ProfileTab />}
         {tab === 'keywords' && <KeywordsTab />}
         {tab === 'alerts' && <AlertsTab onGoTab={goTab} />}
       </div>

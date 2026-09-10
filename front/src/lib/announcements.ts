@@ -61,6 +61,11 @@ export function mapAnnouncement(raw: ApiAnnouncement): Announcement {
 
 export interface AnnouncementQuery {
   q?: string
+  /**
+   * 키워드 매칭 모드 — 여러 개면 BE가 OR로 매칭한다(제목에 하나라도 포함되면 포함).
+   * 대시보드 "매칭된 공고" 카운트·목록과 정확히 같은 집합을 만드는 용도.
+   */
+  keywords?: string[]
   statusLabel?: StatusType
   sort?: 'latest' | 'deadline' | 'title'
   page?: number
@@ -70,6 +75,7 @@ export interface AnnouncementQuery {
 export async function listAnnouncements(query: AnnouncementQuery) {
   const params = new URLSearchParams()
   if (query.q) params.set('q', query.q)
+  for (const kw of query.keywords ?? []) params.append('keywords', kw)
   if (query.statusLabel) params.set('statusLabel', query.statusLabel)
   params.set('sort', query.sort ?? 'latest')
   params.set('page', String(query.page ?? 1))
