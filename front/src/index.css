@@ -1,17 +1,141 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
 @import 'tailwindcss';
+@import 'tw-animate-css';
 
 :root {
-  --navy: #1d3557;
-  --steel: #457b9d;
-  --light-steel: #a8dadc;
-  --bg: #f0f2f5;
-  --card: #ffffff;
-  --border: #e8eaed;
+  /* ===== Forward — R&D Monitor 디자인 토큰 (design_handoff_forward_ui_refresh) ===== */
+  --fwd-primary: #315cff;
+  --fwd-primary-hover: #274bd9;
+  --fwd-primary-pressed: #1f3faf;
+  --fwd-soft: #edf2ff;
+  --fwd-subtle: #f6f8ff;
+
+  --fwd-canvas: #f7f9fc;
+  --fwd-surface: #ffffff;
+  --fwd-line: #e7ecf2;
+  --fwd-strong: #101828;
+  --fwd-text: #475467;
+  --fwd-muted: #98a2b3;
+  --fwd-faint: #cdd5df;
+  --fwd-sub: #667085;
+  --fwd-thead: #fafbfd;
+
+  --fwd-success: #12b76a;
+  --fwd-warning: #f79009;
+  --fwd-danger: #f04438;
+  --fwd-star: #ffcc00;
+
+  /* shadcn 시맨틱 토큰 */
+  --background: var(--fwd-canvas);
+  --foreground: var(--fwd-strong);
+  --card: var(--fwd-surface);
+  --card-foreground: var(--fwd-strong);
+  --popover: var(--fwd-surface);
+  --popover-foreground: var(--fwd-strong);
+  --primary: var(--fwd-primary);
+  --primary-foreground: #ffffff;
+  --secondary: var(--fwd-soft);
+  --secondary-foreground: var(--fwd-primary);
+  --muted: #f2f4f7;
+  --muted-foreground: var(--fwd-muted);
+  --accent: var(--fwd-soft);
+  --accent-foreground: var(--fwd-primary);
+  --destructive: var(--fwd-danger);
+  --destructive-foreground: #ffffff;
+  --border: var(--fwd-line);
+  --input: var(--fwd-line);
+  --ring: var(--fwd-primary);
+  --radius: 10px;
 }
 
-* { font-family: 'Noto Sans KR', 'Inter', sans-serif; }
+@theme inline {
+  /* 네임드 팔레트 → bg-canvas / text-strong / border-line ... */
+  --color-canvas: var(--fwd-canvas);
+  --color-surface: var(--fwd-surface);
+  --color-line: var(--fwd-line);
+  --color-strong: var(--fwd-strong);
+  --color-body: var(--fwd-text);
+  --color-muted2: var(--fwd-muted);
+  --color-faint: var(--fwd-faint);
+  --color-sub: var(--fwd-sub);
+  --color-thead: var(--fwd-thead);
+  --color-primary2: var(--fwd-primary);
+  --color-primary-hover: var(--fwd-primary-hover);
+  --color-primary-pressed: var(--fwd-primary-pressed);
+  --color-soft: var(--fwd-soft);
+  --color-subtle: var(--fwd-subtle);
+  --color-success: var(--fwd-success);
+  --color-warning: var(--fwd-warning);
+  --color-danger: var(--fwd-danger);
+  --color-star: var(--fwd-star);
 
-::-webkit-scrollbar { width: 4px; height: 4px; opacity: 0; }
-::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+  /* 레거시(v6) 클래스 별칭 — 아직 리라이트 전 파일 호환용 */
+  --color-divider: var(--fwd-line);
+  --color-ink: var(--fwd-strong);
+  --color-ink-secondary: var(--fwd-text);
+  --color-ink-tertiary: var(--fwd-muted);
+  --color-fill: #f2f4f7;
+  --color-fill-hover: #e9ecf1;
+  --color-red: var(--fwd-danger);
+  --color-green: var(--fwd-success);
+  --color-amber: var(--fwd-warning);
+
+  /* shadcn 시맨틱 */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+* {
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
+}
+
+body {
+  background: var(--fwd-canvas);
+  color: var(--fwd-text);
+}
+
+/* 플로팅 요소 전용 섀도 (서피스는 보더만) */
+.shadow-float { box-shadow: 0 16px 40px rgba(15, 32, 84, 0.1); }
+/* 세그먼트 활성 필의 미세 섀도 */
+.shadow-seg { box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08), 0 0 0 0.5px rgba(16, 24, 40, 0.04); }
+
+/* 즉시 프레스 피드백 */
+.pressable { transition: transform 100ms ease-out; }
+.pressable:active { transform: scale(0.98); }
+
+/* 등장 모션 (절제) */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.rise { animation: rise 0.4s ease both; }
+.rise-1 { animation-delay: 0.04s; }
+.rise-2 { animation-delay: 0.1s; }
+.rise-3 { animation-delay: 0.16s; }
+.rise-4 { animation-delay: 0.22s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation-duration: 0.01ms !important; }
+  .pressable, .pressable:active { transition: none !important; transform: none !important; }
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: var(--fwd-faint); border-radius: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }

@@ -5,3 +5,6 @@ venv/
 .env
 .pytest_cache/
 .dev-mail/
+
+# 로컬 SQLite 프리뷰 DB
+dev.db

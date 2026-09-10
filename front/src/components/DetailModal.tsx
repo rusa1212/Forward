@@ -32,7 +32,7 @@ export default function DetailModal() {
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeDetail}>
         <div className="bg-white rounded-2xl shadow-2xl p-8 text-center" onClick={e => e.stopPropagation()}>
           <p className="text-sm text-gray-600 font-medium mb-4">존재하지 않는 공고입니다.</p>
-          <button onClick={closeDetail} className="text-sm text-[#457b9d] hover:underline font-medium">닫기</button>
+          <button onClick={closeDetail} className="text-sm text-[#4b4ded] hover:underline font-medium">닫기</button>
         </div>
       </div>
     )
@@ -115,7 +115,7 @@ export default function DetailModal() {
             {a.contact && (
               <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
                 <span className="text-xs text-gray-400 whitespace-nowrap">문의처</span>
-                <span className="font-medium text-[#457b9d]">{a.contact}</span>
+                <span className="font-medium text-[#4b4ded]">{a.contact}</span>
               </div>
             )}
             {/* Row 4 */}
@@ -147,7 +147,7 @@ export default function DetailModal() {
               href={a.originalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 flex items-center justify-center gap-2 bg-[#1d3557] text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-[#16293f] transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 bg-[#1d1d1f] text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-[#000000] transition-colors"
             >
               본 공고 바로가기
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

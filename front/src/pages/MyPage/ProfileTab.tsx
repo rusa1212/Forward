@@ -65,7 +65,7 @@ export default function ProfileTab() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-lg text-sm text-gray-400">
+      <div className="bg-white rounded-xl border border-line p-6 max-w-lg text-sm text-gray-400">
         내 정보를 불러오는 중입니다...
       </div>
     )
@@ -73,7 +73,7 @@ export default function ProfileTab() {
 
   if (error || !me) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-lg">
+      <div className="bg-white rounded-xl border border-line p-6 max-w-lg">
         <p className="text-sm text-red-600">{error || '내 정보를 불러오지 못했습니다.'}</p>
         <button onClick={refresh} className="mt-3 border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors">
           다시 시도
@@ -91,9 +91,9 @@ export default function ProfileTab() {
   ]
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-lg">
+    <div className="bg-white rounded-xl border border-line p-6 max-w-lg">
       <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
-        <div className="w-14 h-14 bg-[#1d3557] rounded-2xl flex items-center justify-center text-white text-xl font-bold shadow-md">
+        <div className="w-14 h-14 bg-[#101828] rounded-2xl flex items-center justify-center text-white text-xl font-bold shadow-md">
           {displayName.slice(0, 1)}
         </div>
         <div>
@@ -117,7 +117,7 @@ export default function ProfileTab() {
 
       {mode === 'view' && (
         <div className="mt-6 flex items-center gap-3">
-          <button onClick={() => openForm('email')} className="bg-[#1d3557] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#16293f] transition-colors">
+          <button onClick={() => openForm('email')} className="bg-[#101828] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#1F3FAF] transition-colors">
             정보 수정
           </button>
           <button onClick={() => openForm('password')} className="border border-gray-200 text-gray-600 px-5 py-2 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors">
@@ -145,12 +145,12 @@ export default function ProfileTab() {
               value={emailInput}
               onChange={e => setEmailInput(e.target.value)}
               autoFocus
-              className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#457b9d]"
+              className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#315cff]"
             />
           </label>
           {formError && <p className="text-xs text-red-600">{formError}</p>}
           <div className="flex gap-2 pt-1">
-            <button type="submit" disabled={pending} className="bg-[#1d3557] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#16293f] transition-colors disabled:opacity-50">
+            <button type="submit" disabled={pending} className="bg-[#101828] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#1F3FAF] transition-colors disabled:opacity-50">
               {pending ? '저장 중...' : '저장'}
             </button>
             <button type="button" onClick={closeForm} className="border border-gray-200 text-gray-600 px-5 py-2 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors">
@@ -179,14 +179,14 @@ export default function ProfileTab() {
                 onChange={e => setValue(e.target.value)}
                 autoComplete={autoComplete}
                 autoFocus={i === 0}
-                className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#457b9d]"
+                className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#315cff]"
               />
             </label>
           ))}
           <p className="text-[11px] text-gray-400">새 비밀번호는 {MIN_PASSWORD_LENGTH}자 이상이어야 합니다.</p>
           {formError && <p className="text-xs text-red-600">{formError}</p>}
           <div className="flex gap-2 pt-1">
-            <button type="submit" disabled={pending} className="bg-[#1d3557] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#16293f] transition-colors disabled:opacity-50">
+            <button type="submit" disabled={pending} className="bg-[#101828] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#1F3FAF] transition-colors disabled:opacity-50">
               {pending ? '변경 중...' : '변경'}
             </button>
             <button type="button" onClick={closeForm} className="border border-gray-200 text-gray-600 px-5 py-2 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors">
