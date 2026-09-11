@@ -7,7 +7,8 @@ import { sendMyNotificationEmail } from '@/lib/me'
 import type { MyTab } from '@/types'
 
 export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }) {
-  const { keywords, toggleAlert } = useKeywordsContext()
+  const { keywords, toggleAlert, setAllEmailAlerts } = useKeywordsContext()
+  const allKeywordEmailOn = keywords.length > 0 && keywords.every(k => k.emailAlert)
   const { settings, error: loadError, pending, save } = useAlertSettings()
   const [savedMsg, setSavedMsg] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -91,13 +92,6 @@ export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }
                     대시보드 알림
                   </div>
                 </th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500">
-                  <div className="flex items-center justify-center gap-1.5">
-                    <svg style={{width:13,height:13}} fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                    이메일 발송
-                    <span className="text-[9px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">자동</span>
-                  </div>
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -109,37 +103,42 @@ export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }
                   <td className="px-4 py-3.5 text-center">
                     <Toggle enabled={kw.dashboardAlert} onChange={() => toggleAlert(kw.id, 'dashboard')} />
                   </td>
-                  <td className="px-4 py-3.5 text-center">
-                    <Toggle enabled={kw.emailAlert} onChange={() => toggleAlert(kw.id, 'email')} />
-                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
         <p className="px-5 py-3 border-t border-gray-50 text-[11px] text-gray-400 leading-relaxed">
-          "이메일 발송"을 켜두면 <b className="text-gray-500 font-semibold">앞으로 매칭되는 건</b>이 아래 발송 주기에 맞춰 자동으로 메일로 나갑니다.
-          지금 쌓여 있는 알림을 당장 받고 싶다면 토글과 상관없이 아래 <b className="text-gray-500 font-semibold">"지금 바로 받기"</b>를 누르세요.
+          이 키워드들의 매칭 공고를 이메일로도 받을지는 아래 <b className="text-gray-500 font-semibold">"이메일 발송"</b> 카드에서
+          키워드 전체에 한 번에 설정합니다. 지금 쌓여 있는 알림을 당장 받고 싶다면 그 설정과 상관없이
+          더 아래 <b className="text-gray-500 font-semibold">"지금 바로 받기"</b>를 누르세요.
         </p>
       </div>
 
-      {/* 이메일 발송 시간 */}
+      {/* 이메일 발송 — 토글(on/off) + 주기, 모든 키워드 공통 1개 */}
       <div className="bg-white rounded-xl border border-line overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex items-start gap-3">
           <div className="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
             <svg style={{width:18,height:18}} fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
           </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-              이메일 발송 주기
-              <span className="text-[9px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">자동</span>
-            </h3>
-            <p className="text-xs text-gray-400 mt-0.5">위에서 이메일 발송을 켠 항목이 앞으로 얼마나 자주 자동 발송될지 정합니다</p>
+          <div className="flex-1 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                이메일 발송
+                <span className="text-[9px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">자동</span>
+              </h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {keywords.length === 0 ? '키워드를 먼저 등록하면 켤 수 있습니다' : '켜면 모든 키워드의 매칭 공고를 이메일로도 받습니다'}
+              </p>
+            </div>
+            <Toggle
+              enabled={allKeywordEmailOn}
+              onChange={() => setAllEmailAlerts(!allKeywordEmailOn)}
+            />
           </div>
         </div>
-        <div className="px-5 py-4 flex gap-2">
+        <div className={`px-5 py-4 flex gap-2 transition-opacity ${allKeywordEmailOn ? '' : 'opacity-40 pointer-events-none'}`}>
           {([['daily', '매일 오전 9시'], ['weekly', '주 1회 (월요일)']] as const).map(([val, label]) => (
             <button key={val} onClick={() => setAlertFreq(val)}
               className={`px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${alertFreq === val ? 'bg-[#101828] text-white border-[#101828]' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
