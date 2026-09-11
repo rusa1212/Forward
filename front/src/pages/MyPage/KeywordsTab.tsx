@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
-import Toggle from '@/components/common/Toggle'
 import { useKeywordsContext } from '@/contexts/KeywordsContext'
 
-const GRID = 'grid grid-cols-[minmax(0,1fr)_110px_120px_120px_64px] items-center gap-2'
+const GRID = 'grid grid-cols-[minmax(0,1fr)_110px_64px] items-center gap-2'
 
 export default function KeywordsTab() {
-  const { keywords, addKeyword, removeKeyword, toggleAlert, loading, error } = useKeywordsContext()
+  const { keywords, addKeyword, removeKeyword, loading, error } = useKeywordsContext()
   const [newKeyword, setNewKeyword] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -28,12 +27,10 @@ export default function KeywordsTab() {
         </div>
 
         <div className="overflow-x-auto">
-          <div className="min-w-[720px]">
+          <div className="min-w-[420px]">
             <div className={`${GRID} px-7 h-10 bg-thead border-b border-line`}>
               <span className="text-xs font-semibold text-muted2">키워드</span>
               <span className="text-xs font-semibold text-muted2 text-center">최근 30일</span>
-              <span className="text-xs font-semibold text-muted2 text-center">대시보드 알림</span>
-              <span className="text-xs font-semibold text-muted2 text-center">이메일 알림</span>
               <span className="text-xs font-semibold text-muted2 text-center">삭제</span>
             </div>
 
@@ -48,12 +45,6 @@ export default function KeywordsTab() {
                     {kw.name}
                   </span>
                   <span className="text-[13px] text-body text-center tabular-nums whitespace-nowrap">{kw.matchCount}건</span>
-                  <div className="flex justify-center">
-                    <Toggle enabled={kw.dashboardAlert} onChange={() => toggleAlert(kw.id, 'dashboard')} />
-                  </div>
-                  <div className="flex justify-center">
-                    <Toggle enabled={kw.emailAlert} onChange={() => toggleAlert(kw.id, 'email')} />
-                  </div>
                   <button
                     onClick={() => removeKeyword(kw.id)}
                     aria-label={`${kw.name} 삭제`}
