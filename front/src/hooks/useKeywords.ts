@@ -94,7 +94,22 @@ export function useKeywords() {
     }
   }, [keywords, handleError])
 
-  return { keywords, addKeyword, removeKeyword, toggleAlert, loading, error }
+  /** 알림설정 화면의 "이메일 발송" 토글 하나로 모든 키워드의 emailAlert를 한 번에 맞춘다.
+   * 키워드마다 따로 토글을 두면 개수가 많아져 헷갈리기 때문에(알림설정 UI 참고), 이미
+   * 원하는 값인 키워드는 건드리지 않고 나머지만 PATCH한다. DB에는 여전히 키워드별 컬럼이라
+   * API 자체는 그대로 재사용한다. */
+  const setAllEmailAlerts = useCallback(async (enabled: boolean) => {
+    const targets = keywords.filter(k => k.emailAlert !== enabled)
+    if (targets.length === 0) return
+    try {
+      await Promise.all(targets.map(k => api.patch<ApiKeyword>(`/keywords/${k.id}/alerts`, { emailAlert: enabled })))
+      await refresh()
+    } catch (e) {
+      handleError(e)
+    }
+  }, [keywords, refresh, handleError])
+
+  return { keywords, addKeyword, removeKeyword, toggleAlert, setAllEmailAlerts, loading, error }
 }
 
 export type KeywordsValue = ReturnType<typeof useKeywords>

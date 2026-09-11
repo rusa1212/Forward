@@ -17,6 +17,7 @@ from app.db.session import get_db
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 MATCHED_FEED_LIMIT = 10
+MONTH_LABELS = [f"{m}월" for m in range(1, 13)]
 
 # collected_at은 항상 UTC로 저장된다(session.py). "오늘"은 사용자 기준(KST)이라서
 # UTC 그대로 date.today()나 utcnow().date()와 비교하면 하루 중 특정 시간대(특히 매일
@@ -29,18 +30,28 @@ def _today_kst():
     return (datetime.utcnow() + KST_OFFSET).date()
 
 
+def _user_keywords(db: Session, current_user: User) -> list[str]:
+    return db.execute(
+        select(Keyword.keyword).where(Keyword.user_id == current_user.id)
+    ).scalars().all()
+
+
+def _match_condition(keyword_names: list[str]):
+    """키워드 제목 부분일치(ILIKE)의 OR 조건. 키워드가 없으면 None."""
+    if not keyword_names:
+        return None
+    return or_(*(Announcement.title.ilike(f"%{kw}%") for kw in keyword_names))
+
+
 @router.get("/summary")
 def get_dashboard_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    keyword_names = db.execute(
-        select(Keyword.keyword).where(Keyword.user_id == current_user.id)
-    ).scalars().all()
+    keyword_names = _user_keywords(db, current_user)
+    match_condition = _match_condition(keyword_names)
 
-    if keyword_names:
-        match_condition = or_(*(Announcement.title.ilike(f"%{kw}%") for kw in keyword_names))
-
+    if match_condition is not None:
         matched_count = db.execute(
             select(func.count()).select_from(Announcement).where(match_condition)
         ).scalar_one()
@@ -87,5 +98,53 @@ def get_dashboard_summary(
             },
             "matched": [_serialize(row) for row in matched_rows],
             "saved": [_serialize(row) for row in saved_rows],
+        },
+    }
+
+
+@router.get("/trend")
+def get_dashboard_trend(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """월별 키워드 매칭 추이 — 올해·작년의 1~12월 매칭 건수(각 12개 배열).
+
+    매칭 기준은 /dashboard/summary와 동일(키워드 제목 부분일치의 OR), 집계 기준은
+    공고가 "몇 월에 수집됐는지"(collected_at). collected_at은 UTC로 저장되므로
+    KST로 변환한 뒤 연/월을 뽑는다(_today_kst()와 같은 이유 — 위 주석 참고).
+    """
+    keyword_names = _user_keywords(db, current_user)
+    match_condition = _match_condition(keyword_names)
+
+    curr_year = _today_kst().year
+    prev_year = curr_year - 1
+    counts = {prev_year: [0] * 12, curr_year: [0] * 12}
+
+    if match_condition is not None:
+        collected_kst = func.convert_tz(Announcement.collected_at, "+00:00", "+09:00")
+        year_expr = func.year(collected_kst)
+        month_expr = func.month(collected_kst)
+
+        rows = db.execute(
+            select(year_expr, month_expr, func.count())
+            .where(
+                match_condition,
+                collected_kst >= datetime(prev_year, 1, 1),
+                collected_kst < datetime(curr_year + 1, 1, 1),
+            )
+            .group_by(year_expr, month_expr)
+        ).all()
+
+        for year, month, count in rows:
+            counts[int(year)][int(month) - 1] = count
+
+    return {
+        "success": True,
+        "data": {
+            "months": MONTH_LABELS,
+            "series": [
+                {"year": prev_year, "counts": counts[prev_year]},
+                {"year": curr_year, "counts": counts[curr_year]},
+            ],
         },
     }

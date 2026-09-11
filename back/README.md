@@ -153,6 +153,8 @@ docker compose up -d --wait     # --wait: DB가 healthy 될 때까지 대기 (�
 
 **이메일 발송은 SMTP 설정이 있어야 실제로 동작합니다.** `.env`의 `SMTP_HOST`가 비어있으면(기본값) 이메일 발송 없이 로그만 남기고 넘어갑니다 — 알림 저장(2번)까지는 SMTP 설정 여부와 무관하게 정상 동작합니다. 어떤 이메일 서비스(SMTP 릴레이/Gmail/SendGrid 등)를 쓸지는 아직 팀에서 결정 전이라, 결정되면 `.env`에 `SMTP_HOST`/`SMTP_PORT`/`SMTP_USERNAME`/`SMTP_PASSWORD`/`SMTP_FROM_EMAIL`/`SMTP_USE_TLS` 값만 채우면 코드 수정 없이 발송이 시작됩니다 (`.env.example` 참고). 로컬에서 실제 발송 경로를 확인하려면 `scripts/dev_smtp_sink.py`(메일을 밖으로 안 보내고 콘솔·`.dev-mail/*.eml`로 저장하는 SMTP 싱크)를 띄우고 `.env`에 `SMTP_HOST=localhost`/`SMTP_PORT=1025`/`SMTP_USE_TLS=false`를 넣으면 됩니다.
 
+`SMTP_PORT`가 `465`면 처음부터 암호화하는 SMTP_SSL로, 그 외 포트는 평문 연결 후 STARTTLS로 자동 전환됩니다(`notifier.py`의 `_send_email`). 사내 메일 서버(예: 회사 SMTP 릴레이)가 465/SSL만 지원해도 `.env`의 `SMTP_PORT`만 465로 바꾸면 되고 코드 수정은 필요 없습니다 — 다만 호스트·포트·계정 정보는 IT팀에 문의해야 하고, 클라우드로 옮길 때는 그 서버 IP가 사내 메일 서버의 발신 허용 목록(방화벽)에 등록돼야 할 수 있으니 미리 확인해두세요.
+
 "저장한 공고 마감임박 알림" (사용자가 마이페이지에서 D-7/D-3/D-1 중 선택하는 것, `ALERT_SETTINGS`)은 이번 범위가 아니고 별도 작업입니다 — 이번 자동화는 키워드 매칭 기반 알림만 다룹니다.
 
 ## RLS 없음 — 주의

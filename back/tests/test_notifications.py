@@ -357,3 +357,77 @@ def test_mark_all_notifications_read(client, db, make_user):
 
     list_res = client.get("/api/v1/notifications", headers=user["headers"])
     assert list_res.json()["data"]["unreadCount"] == 0
+
+
+class _FakeSmtpConn:
+    """smtplib.SMTP/SMTP_SSL 대역 — 실제로 접속하지 않고 호출 내역만 기록한다."""
+    last_instance: "_FakeSmtpConn | None" = None
+
+    def __init__(self, host, port, timeout=None):
+        self.host, self.port = host, port
+        self.starttls_called = False
+        self.login_args = None
+        self.sent_message = None
+        _FakeSmtpConn.last_instance = self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def starttls(self):
+        self.starttls_called = True
+
+    def login(self, username, password):
+        self.login_args = (username, password)
+
+    def send_message(self, msg):
+        self.sent_message = msg
+
+
+def _fail_if_used(*a, **k):
+    raise AssertionError("이 SMTP 클래스는 이 포트에서 쓰이면 안 된다")
+
+
+def test_send_email_starttls_on_587(monkeypatch):
+    """587(또는 그 외 포트) + SMTP_USE_TLS=True → 평문 연결 후 STARTTLS로 승격."""
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(settings, "SMTP_PORT", 587)
+    monkeypatch.setattr(settings, "SMTP_USE_TLS", True)
+    monkeypatch.setattr(settings, "SMTP_USERNAME", "user@example.com")
+    monkeypatch.setattr(settings, "SMTP_PASSWORD", "pw")
+    monkeypatch.setattr(settings, "SMTP_FROM_EMAIL", "")
+    monkeypatch.setattr(notifier.smtplib, "SMTP", _FakeSmtpConn)
+    monkeypatch.setattr(notifier.smtplib, "SMTP_SSL", _fail_if_used)
+
+    notifier._send_email("to@example.com", "제목", "본문")
+
+    inst = _FakeSmtpConn.last_instance
+    assert inst.port == 587
+    assert inst.starttls_called is True
+    assert inst.login_args == ("user@example.com", "pw")
+    assert inst.sent_message["To"] == "to@example.com"
+
+
+def test_send_email_implicit_ssl_on_465(monkeypatch):
+    """465 → SMTP_SSL로 처음부터 암호화 연결, STARTTLS는 호출하지 않는다.
+
+    회사 SMTP 릴레이(예: 비즈메카 등)가 465/SSL만 지원하는 경우를 대비한 것 —
+    back/.env의 SMTP_PORT만 465로 맞추면 코드 수정 없이 동작해야 한다.
+    """
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(settings, "SMTP_PORT", 465)
+    monkeypatch.setattr(settings, "SMTP_USE_TLS", True)
+    monkeypatch.setattr(settings, "SMTP_USERNAME", "user@example.com")
+    monkeypatch.setattr(settings, "SMTP_PASSWORD", "pw")
+    monkeypatch.setattr(settings, "SMTP_FROM_EMAIL", "")
+    monkeypatch.setattr(notifier.smtplib, "SMTP", _fail_if_used)
+    monkeypatch.setattr(notifier.smtplib, "SMTP_SSL", _FakeSmtpConn)
+
+    notifier._send_email("to@example.com", "제목", "본문")
+
+    inst = _FakeSmtpConn.last_instance
+    assert inst.port == 465
+    assert inst.starttls_called is False
+    assert inst.login_args == ("user@example.com", "pw")

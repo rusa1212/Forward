@@ -170,8 +170,13 @@ def _send_email(to_email: str, subject: str, body: str) -> None:
     msg["From"] = settings.SMTP_FROM_EMAIL or settings.SMTP_USERNAME
     msg["To"] = to_email
 
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
-        if settings.SMTP_USE_TLS:
+    # 포트 465는 관례상 "암시적 SSL"(연결 시작부터 전체 암호화)이라 SMTP_SSL을 쓰고,
+    # 그 외 포트는 평문으로 연결한 뒤 STARTTLS로 승격하는 게 표준(587이 대표적)이다.
+    # 사내 메일서버(예: 회사 SMTP 릴레이)가 465/SSL만 지원하는 경우가 있어, 그때 가서
+    # 코드를 또 고치지 않도록 여기서 미리 둘 다 지원해둔다 — .env의 SMTP_PORT만 맞추면 된다.
+    smtp_cls = smtplib.SMTP_SSL if settings.SMTP_PORT == 465 else smtplib.SMTP
+    with smtp_cls(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
+        if settings.SMTP_USE_TLS and settings.SMTP_PORT != 465:
             server.starttls()
         if settings.SMTP_USERNAME:
             server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
