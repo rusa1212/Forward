@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Toggle from '@/components/common/Toggle'
 import { useAlertSettings } from '@/hooks/useAlertSettings'
 import { useKeywordsContext } from '@/contexts/KeywordsContext'
+import { useMe } from '@/hooks/useMe'
 import { ApiError } from '@/lib/api'
 import { sendMyNotificationEmail } from '@/lib/me'
 import type { MyTab } from '@/types'
@@ -10,6 +11,9 @@ export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }
   const { keywords, toggleAlert, setAllEmailAlerts } = useKeywordsContext()
   const allKeywordEmailOn = keywords.length > 0 && keywords.every(k => k.emailAlert)
   const { settings, error: loadError, pending, save } = useAlertSettings()
+  // 알림이 실제로 가는 주소를 보여주기 위해 조회 — 예전엔 'kim@company.kr'가 목업으로 박혀있어
+  // 실제 로그인 계정과 다른 주소가 표시되는 버그가 있었다.
+  const { me } = useMe()
   const [savedMsg, setSavedMsg] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [alertFreq, setAlertFreq] = useState<'daily' | 'weekly'>('daily')
@@ -228,7 +232,7 @@ export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }
                 <div>
                   <span className="text-sm text-gray-700">이메일 발송</span>
                   <span className="ml-1.5 text-[9px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full align-middle">자동</span>
-                  <span className="ml-2 text-xs text-[#315cff]">kim@company.kr</span>
+                  <span className="ml-2 text-xs text-[#315cff]">{me?.email ?? '불러오는 중...'}</span>
                   <button onClick={() => onGoTab('profile')} className="ml-1.5 text-[10px] text-gray-300 hover:text-gray-500 underline transition-colors">변경</button>
                 </div>
               </div>
