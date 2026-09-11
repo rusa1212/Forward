@@ -95,6 +95,7 @@ export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }
                   <div className="flex items-center justify-center gap-1.5">
                     <svg style={{width:13,height:13}} fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                     이메일 발송
+                    <span className="text-[9px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">자동</span>
                   </div>
                 </th>
               </tr>
@@ -116,6 +117,10 @@ export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }
             </tbody>
           </table>
         )}
+        <p className="px-5 py-3 border-t border-gray-50 text-[11px] text-gray-400 leading-relaxed">
+          "이메일 발송"을 켜두면 <b className="text-gray-500 font-semibold">앞으로 매칭되는 건</b>이 아래 발송 주기에 맞춰 자동으로 메일로 나갑니다.
+          지금 쌓여 있는 알림을 당장 받고 싶다면 토글과 상관없이 아래 <b className="text-gray-500 font-semibold">"지금 바로 받기"</b>를 누르세요.
+        </p>
       </div>
 
       {/* 이메일 발송 시간 */}
@@ -127,8 +132,11 @@ export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }
             </svg>
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-gray-800">이메일 발송 시간</h3>
-            <p className="text-xs text-gray-400 mt-0.5">이메일 알림을 얼마나 자주 받을지 설정합니다</p>
+            <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+              이메일 발송 주기
+              <span className="text-[9px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">자동</span>
+            </h3>
+            <p className="text-xs text-gray-400 mt-0.5">위에서 이메일 발송을 켠 항목이 앞으로 얼마나 자주 자동 발송될지 정합니다</p>
           </div>
         </div>
         <div className="px-5 py-4 flex gap-2">
@@ -139,22 +147,42 @@ export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }
             </button>
           ))}
         </div>
-        <div className="px-5 py-4 border-t border-gray-50 flex flex-wrap items-center gap-x-3 gap-y-2">
-          <button
-            onClick={handleSendNow}
-            disabled={sendingNow}
-            className="border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-gray-50 disabled:opacity-50 transition-colors"
-          >
-            {sendingNow ? '보내는 중...' : '지금 이메일로 받기'}
-          </button>
-          <span className="text-xs text-gray-400">아직 보내지 않은 알림을 지금 즉시 이메일로 보냅니다</span>
-          {sendMsg && (
-            <span className="text-sm text-green-600 font-medium flex items-center gap-1">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-              {sendMsg}
-            </span>
-          )}
-          {sendError && <span className="text-sm text-red-600 font-medium">{sendError}</span>}
+      </div>
+
+      {/* 지금 바로 받기 — 위 자동 발송 설정과 별개로, 지금 쌓인 알림을 즉시 1회 발송 */}
+      <div className="bg-violet-50/40 rounded-xl border border-violet-200 overflow-hidden">
+        <div className="px-5 py-4 flex items-start gap-3">
+          <div className="w-9 h-9 bg-violet-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+            <svg style={{width:18,height:18}} fill="none" viewBox="0 0 24 24" stroke="#7c3aed" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+              지금 바로 받기
+              <span className="text-[9px] font-bold text-violet-700 bg-violet-100 px-1.5 py-0.5 rounded-full">즉시 · 1회성</span>
+            </h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              위 토글·발송 주기 설정과 <b className="font-semibold">무관하게</b>, 아직 이메일로 안 보낸 알림을 지금 이 순간 한 번 보냅니다.
+              설정을 바꾸지 않고 지금 밀린 알림만 확인하고 싶을 때 누르세요.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <button
+                onClick={handleSendNow}
+                disabled={sendingNow}
+                className="bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-violet-700 disabled:opacity-50 transition-colors"
+              >
+                {sendingNow ? '보내는 중...' : '지금 이메일로 받기'}
+              </button>
+              {sendMsg && (
+                <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  {sendMsg}
+                </span>
+              )}
+              {sendError && <span className="text-sm text-red-600 font-medium">{sendError}</span>}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -200,6 +228,7 @@ export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }
                 <svg style={{width:16,height:16}} fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                 <div>
                   <span className="text-sm text-gray-700">이메일 발송</span>
+                  <span className="ml-1.5 text-[9px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full align-middle">자동</span>
                   <span className="ml-2 text-xs text-[#315cff]">kim@company.kr</span>
                   <button onClick={() => onGoTab('profile')} className="ml-1.5 text-[10px] text-gray-300 hover:text-gray-500 underline transition-colors">변경</button>
                 </div>
