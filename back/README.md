@@ -49,12 +49,14 @@ python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt   # Windows
 # source .venv/bin/activate && pip install -r requirements.txt   # macOS/Linux
 
-copy .env.example .env   # DATA_GO_KR_API_KEY, DATABASE_URL, JWT_SECRET 채우기
+copy .env.example .env   # DATA_GO_KR_API_KEY, JWT_SECRET 채우기 (Docker DB URL은 기본값 포함)
 
 # DB 준비 — 방법 A (권장): Docker
 #   Docker Desktop 설치 후 아래 한 줄. forward DB/계정까지 자동 생성됨.
 #   처음이면 docs/온보딩-MySQL과-Docker.md (개념 설명 + 따라하기 + FAQ) 참고.
-docker compose up -d --wait     # --wait: DB가 healthy 될 때까지 대기 (첫 실행 수십 초)
+docker compose up -d --wait     # forward + forward_test DB와 앱 계정까지 자동 생성
+# 로컬 3306 포트를 다른 MySQL이 사용 중이면:
+# FORWARD_DB_PORT=3307 docker compose up -d --wait
 #
 # DB 준비 — 방법 B: MySQL 직접 설치 (MySQL 8 / MariaDB 10.4+)
 #   빈 데이터베이스 + 계정 생성 (아래 SQL을 mysql -u root -p 로 1회 실행)
@@ -75,6 +77,11 @@ docker compose up -d --wait     # --wait: DB가 healthy 될 때까지 대기 (�
 
 `.env`의 `DATABASE_URL`은 `mysql+pymysql://forward:forward@localhost:3306/forward?charset=utf8mb4` 형식입니다
 (`.env.example` 참고). MySQL 8의 기본 인증(caching_sha2_password) 때문에 `PyMySQL`과 함께 `cryptography`가 필요하며 requirements에 포함돼 있습니다.
+
+Compose는 테스트용 `forward_test` DB도 첫 실행에 만들고 `forward` 계정에 해당 DB 권한을 줍니다.
+기존 Docker 볼륨을 이미 만든 뒤 이 설정을 받은 경우 초기화 SQL은 자동 재실행되지 않습니다. 이때는
+`forward_test` DB와 권한을 직접 한 번 추가하거나, 개발 데이터가 필요 없을 때만 `docker compose down -v`
+후 다시 실행하세요. `down -v`는 기존 로컬 DB 데이터를 모두 지웁니다.
 
 `GET /api/v1/health/db`가 `{"db":"connected"}`를 주면 연결 성공입니다.
 

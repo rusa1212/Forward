@@ -4,11 +4,12 @@
 - 조달청 나라장터: 입찰공고정보 (JSON)
 - 과학기술정보통신부: 사업공고 (JSON)
 
-세 API 모두 같은 DATA_GO_KR_API_KEY(디코딩 키)를 공용으로 사용합니다.
+세 API 모두 같은 DATA_GO_KR_API_KEY(포털의 일반 인증키)를 공용으로 사용합니다.
+URL 인코딩된 형태로 발급돼도 요청 전에 디코딩해 httpx가 정확히 한 번만 인코딩합니다.
 """
 import asyncio
 from datetime import date, datetime
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 from xml.etree import ElementTree
 
 import httpx
@@ -16,6 +17,11 @@ import httpx
 from app.core.config import settings
 
 TIMEOUT = 15.0
+
+
+def _service_key() -> str:
+    """포털의 단일 일반 인증키를 httpx가 정확히 한 번만 URL 인코딩하게 한다."""
+    return unquote(settings.DATA_GO_KR_API_KEY)
 
 
 def _parse_date(value: str | None, fmt: str) -> date | None:
@@ -37,7 +43,7 @@ async def fetch_kstartup(client: httpx.AsyncClient, page: int = 1, per_page: int
     """창업진흥원 K-Startup 사업공고. 응답이 <col name="...">value</col> 형태의 XML."""
     res = await client.get(
         "https://apis.data.go.kr/B552735/kisedKstartupService01/getAnnouncementInformation01",
-        params={"serviceKey": settings.DATA_GO_KR_API_KEY, "page": page, "perPage": per_page},
+        params={"serviceKey": _service_key(), "page": page, "perPage": per_page},
         timeout=TIMEOUT,
     )
     res.raise_for_status()
@@ -75,7 +81,7 @@ async def fetch_bid_public_info(
     res = await client.get(
         "https://apis.data.go.kr/1230000/ad/BidPublicInfoService/getBidPblancListInfoServc",
         params={
-            "serviceKey": settings.DATA_GO_KR_API_KEY,
+            "serviceKey": _service_key(),
             "numOfRows": num_of_rows,
             "pageNo": page_no,
             "type": "json",
@@ -116,7 +122,7 @@ async def fetch_msit(client: httpx.AsyncClient, page_no: int = 1, num_of_rows: i
     res = await client.get(
         "https://apis.data.go.kr/1721000/msitannouncementinfo/businessAnnouncMentList",
         params={
-            "ServiceKey": settings.DATA_GO_KR_API_KEY,
+            "ServiceKey": _service_key(),
             "pageNo": page_no,
             "numOfRows": num_of_rows,
             "returnType": "json",
