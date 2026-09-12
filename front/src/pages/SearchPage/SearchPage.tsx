@@ -24,8 +24,10 @@ export default function SearchPage() {
   // "전체 검색으로 전환" 버튼으로만 끈다.
   const [matchedMode, setMatchedMode] = useState(() => searchParams.get('matched') === '1')
 
-  const [keyword, setKeyword] = useState('')
-  const [query, setQuery] = useState('')
+  // 랜딩페이지 검색바에서 ?q=검색어로 들어온 경우 그대로 검색어로 반영한다.
+  const initialQuery = searchParams.get('q') ?? ''
+  const [keyword, setKeyword] = useState(initialQuery)
+  const [query, setQuery] = useState(initialQuery)
   const [selectedStatus, setSelectedStatus] = useState<'전체' | StatusType>('전체')
   const [sort, setSort] = useState<SortType>('latest')
   const [currentPage, setCurrentPage] = useState(1)
