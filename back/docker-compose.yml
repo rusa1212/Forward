@@ -28,15 +28,17 @@ services:
       MYSQL_PASSWORD: forward
     ports:
       # 왼쪽(3306) = 내 컴퓨터에서 접속할 포트, 오른쪽(3306) = 컨테이너 안 MySQL 포트
-      # 내 컴퓨터에 MySQL이 이미 설치돼 있어 3306이 사용 중이면 "3307:3306"으로 바꾸고,
+      # 내 컴퓨터에 MySQL이 이미 설치돼 있으면 FORWARD_DB_PORT=3307로 실행하고,
       # .env의 DATABASE_URL 포트도 3307로 맞추세요.
-      - "3306:3306"
+      - "${FORWARD_DB_PORT:-3306}:3306"
     volumes:
       # 데이터를 컨테이너 밖(도커 볼륨)에 보관 — 컨테이너를 지워도 데이터가 남는 이유
       - forward-mysql-data:/var/lib/mysql
+      # 첫 볼륨 생성 때 테스트 전용 DB와 권한도 함께 준비한다.
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      # 자격증명 불필요 — ping은 서버가 떠 있으면 성공 (비밀번호를 넣으면 체크마다 경고 로그만 쌓임)
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      # 서버 프로세스뿐 아니라 앱 계정 인증까지 완료됐는지 확인한다.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
       interval: 5s
       timeout: 3s
       retries: 12
