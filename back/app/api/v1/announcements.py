@@ -7,16 +7,18 @@
 수집 출처(app/services/collector.py)마다 원본 상태값이 다릅니다
 (K-Startup은 "Y"/"N", 나라장터는 공고 종류명, 과기정통부는 없음(null)).
 그래서 원본 `status` 컬럼과는 별도로, 접수시작일/접수종료일을 기준으로
-FE의 StatusType(접수중/접수예정/마감임박/마감)에 맞춘 `statusLabel`을 계산해서 내려줍니다.
+FE의 StatusType(접수중/접수예정/마감임박/마감/기한미정)에 맞춘 `statusLabel`을 계산해서 내려줍니다.
 - 마감임박 기준은 "마감일까지 3일 이내"로 잡았습니다(팀 협의된 값이 아니라 임시 기준이니,
   FE 연동 시 실제 기준을 다시 확인해주세요).
-- 접수시작일/종료일 정보가 아예 없는 공고(예: msit)는 판단할 수 없어 statusLabel이 null입니다.
+- 접수시작일/종료일 정보가 아예 없는 공고(예: msit)는 접수중 여부를 판단할 근거가 없어
+  "기한미정"으로 분류합니다 (임의로 접수중 취급하면 이미 마감/시작 전인 공고를 접수중으로
+  잘못 안내할 수 있어 별도 카테고리로 뺐습니다).
 """
 import uuid
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import case, func, literal, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
@@ -43,7 +45,7 @@ SORT_OPTIONS = {
 }
 
 DEADLINE_SOON_DAYS = 3
-STATUS_LABELS = ("접수중", "접수예정", "마감임박", "마감")
+STATUS_LABELS = ("접수중", "접수예정", "마감임박", "마감", "기한미정")
 
 
 def _status_label_expr():
@@ -54,7 +56,7 @@ def _status_label_expr():
     """
     today = date.today()
     return case(
-        (Announcement.reception_start.is_(None) & Announcement.reception_end.is_(None), literal(None)),
+        (Announcement.reception_start.is_(None) & Announcement.reception_end.is_(None), "기한미정"),
         (Announcement.reception_end < today, "마감"),
         (Announcement.reception_start > today, "접수예정"),
         (Announcement.reception_end <= today + timedelta(days=DEADLINE_SOON_DAYS), "마감임박"),
@@ -62,10 +64,10 @@ def _status_label_expr():
     )
 
 
-def _status_label(reception_start: date | None, reception_end: date | None) -> str | None:
+def _status_label(reception_start: date | None, reception_end: date | None) -> str:
     """statusLabel을 파이썬에서 계산 (_status_label_expr()과 동일한 규칙, 응답 직렬화용)."""
     if reception_start is None and reception_end is None:
-        return None
+        return "기한미정"
     today = date.today()
     if reception_end is not None and reception_end < today:
         return "마감"

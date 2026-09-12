@@ -11,7 +11,7 @@ interface ApiAnnouncement {
   reception_start: string | null
   reception_end: string | null
   status: string | null
-  statusLabel: StatusType | null
+  statusLabel: StatusType
   detail_url: string | null
   summary: string | null
   collected_at: string
@@ -47,7 +47,7 @@ export function mapAnnouncement(raw: ApiAnnouncement): Announcement {
     announcementType: sourceLabel,
     announceType: sourceLabel,
     field: '',
-    status: raw.statusLabel ?? '접수중',
+    status: raw.statusLabel,
     postedDate: raw.reception_start ?? '-',
     receiptDate: raw.reception_start ?? '-',
     deadline: raw.reception_end ?? '기한 미정',

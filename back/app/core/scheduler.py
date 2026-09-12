@@ -6,6 +6,7 @@
 alert_settings를 그대로 따른다 — daily면 매 실행마다, weekly면 월요일 실행에만.
 """
 import logging
+import sys
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -44,6 +45,16 @@ async def run_scheduled_collect() -> None:
 
 
 def start_scheduler() -> None:
+    # trigger 없이 add_job하면 APScheduler가 "지금 바로 1회" 실행으로 예약한다.
+    # 서버를 막 켰을 때 다음 정기 수집(06시/18시) 전까지 공고가 비어 보이는 문제 방지용.
+    # pytest 하에서는 TestClient(app)이 매 테스트마다 lifespan을 실행하므로, 이 job이
+    # 그대로 켜져 있으면 테스트마다 실제 공공데이터포털 API를 호출해 테스트 DB를 오염시킨다.
+    if "pytest" not in sys.modules:
+        scheduler.add_job(
+            run_scheduled_collect,
+            id="startup_announcement_collect",
+            replace_existing=True,
+        )
     scheduler.add_job(
         run_scheduled_collect,
         trigger=CronTrigger(hour=settings.COLLECT_CRON_HOURS, minute=settings.COLLECT_CRON_MINUTE),
@@ -52,7 +63,7 @@ def start_scheduler() -> None:
     )
     scheduler.start()
     logger.info(
-        "scheduler started: collect at hours=[%s] minute=%02d",
+        "scheduler started: startup collect + collect at hours=[%s] minute=%02d",
         settings.COLLECT_CRON_HOURS,
         settings.COLLECT_CRON_MINUTE,
     )

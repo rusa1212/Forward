@@ -25,8 +25,16 @@ export default function LandingPage() {
   const navigate = useNavigate()
   const [recent, setRecent] = useState<Announcement[]>([])
   const [featIdx, setFeatIdx] = useState(0)
+  const [keyword, setKeyword] = useState('')
 
-  const goSearch = () => navigate(isAuthenticated() ? '/search' : '/login')
+  const goSearch = (q?: string) => {
+    const query = (q ?? keyword).trim()
+    if (!isAuthenticated()) {
+      navigate('/login')
+      return
+    }
+    navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search')
+  }
 
   // 비로그인 상태에서 API가 막혀 있으면 섹션을 조용히 숨긴다
   useEffect(() => {
@@ -69,12 +77,14 @@ export default function LandingPage() {
           <div className="rise rise-3 mt-9 w-full max-w-[820px] h-[68px] bg-white border-[1.5px] border-line rounded-[14px] shadow-float flex items-center gap-3 pl-6 pr-[7px]">
             <Search className="w-5 h-5 text-muted2 shrink-0" strokeWidth={2} />
             <input
+              value={keyword}
+              onChange={e => setKeyword(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && goSearch()}
               placeholder="사업명, 기관명, 기술 분야, 키워드 검색"
               className="flex-1 min-w-0 bg-transparent text-[15px] text-strong placeholder:text-muted2 focus:outline-none"
             />
             <button
-              onClick={goSearch}
+              onClick={() => goSearch()}
               className="pressable h-[54px] px-7 rounded-[10px] bg-primary2 hover:bg-primary-hover active:bg-primary-pressed text-white text-[15px] font-bold transition-colors shrink-0"
             >
               검색
@@ -84,7 +94,7 @@ export default function LandingPage() {
           <div className="rise rise-4 mt-5 flex items-center gap-4 text-[13px]">
             <span className="text-muted2">인기 검색어</span>
             {POPULAR.map(k => (
-              <button key={k} onClick={goSearch} className="text-sub hover:text-primary2 font-medium transition-colors">
+              <button key={k} onClick={() => goSearch(k)} className="text-sub hover:text-primary2 font-medium transition-colors">
                 {k}
               </button>
             ))}
@@ -97,7 +107,7 @@ export default function LandingPage() {
         <section className="max-w-[1200px] mx-auto w-full px-8 py-16">
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="text-[22px] font-extrabold text-strong tracking-[-0.3px]">새로 올라온 공고</h2>
-            <button onClick={goSearch} className="text-[13px] font-medium text-primary2 hover:text-primary-hover">
+            <button onClick={() => goSearch()} className="text-[13px] font-medium text-primary2 hover:text-primary-hover">
               전체 보기 ›
             </button>
           </div>
@@ -105,7 +115,7 @@ export default function LandingPage() {
             {recent.map(a => (
               <button
                 key={a.id}
-                onClick={goSearch}
+                onClick={() => goSearch()}
                 className="w-full grid grid-cols-[76px_minmax(0,1fr)_170px_90px_130px] items-center gap-2 px-2 py-4 border-b border-line text-left hover:bg-subtle transition-colors"
               >
                 <StatusBadge status={a.status} />

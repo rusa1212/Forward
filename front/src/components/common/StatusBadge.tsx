@@ -7,6 +7,7 @@ export default function StatusBadge({ status }: { status: StatusType }) {
     '접수예정': 'text-sub',
     '마감임박': 'text-warning',
     '마감': 'text-muted2',
+    '기한미정': 'text-muted2',
   }
   return (
     <span className={`inline-flex items-center text-[13px] font-semibold whitespace-nowrap ${styles[status]}`}>
