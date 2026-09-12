@@ -119,36 +119,58 @@ export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }
         </p>
       </div>
 
-      {/* 이메일 발송 — 토글(on/off) + 주기, 모든 키워드 공통 1개 */}
+      {/* 이메일 발송 — 발송 주기(공통) + 알림 종류별 개별 토글 2개를 한 카드에 모아둔다.
+          두 토글은 서로 다른 알림(키워드 매칭 / 즐겨찾기 마감임박)을 각자 독립적으로 켜고 끄지만,
+          발송 주기는 공통이라 화면에 따로 떨어져 있으면 같은 설정처럼 보여 혼동을 줬다. */}
       <div className="bg-white rounded-xl border border-line overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex items-start gap-3">
           <div className="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
             <svg style={{width:18,height:18}} fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
           </div>
-          <div className="flex-1 flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-                이메일 발송
-                <span className="text-[9px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">자동</span>
-              </h3>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {keywords.length === 0 ? '키워드를 먼저 등록하면 켤 수 있습니다' : '켜면 모든 키워드의 매칭 공고를 이메일로도 받습니다'}
-              </p>
-            </div>
-            <Toggle
-              enabled={allKeywordEmailOn}
-              onChange={() => setAllEmailAlerts(!allKeywordEmailOn)}
-            />
+          <div>
+            <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+              이메일 발송
+              <span className="text-[9px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">자동</span>
+            </h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              <span className="text-[#315cff]">{me?.email ?? '불러오는 중...'}</span>(으)로 발송됩니다
+              <button onClick={() => onGoTab('profile')} className="ml-1.5 text-[10px] text-gray-300 hover:text-gray-500 underline transition-colors">변경</button>
+            </p>
           </div>
         </div>
-        <div className={`px-5 py-4 flex gap-2 transition-opacity ${allKeywordEmailOn ? '' : 'opacity-40 pointer-events-none'}`}>
-          {([['daily', '매일 오전 9시'], ['weekly', '주 1회 (월요일)']] as const).map(([val, label]) => (
-            <button key={val} onClick={() => setAlertFreq(val)}
-              className={`px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${alertFreq === val ? 'bg-[#101828] text-white border-[#101828]' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-              {label}
-            </button>
-          ))}
+
+        {/* 발송 주기 — 아래 두 알림 종류 모두에 공통 적용 */}
+        <div className="px-5 py-4 border-b border-gray-50">
+          <p className="text-xs font-semibold text-gray-500 mb-2.5">발송 주기</p>
+          <div className="flex gap-2">
+            {([['daily', '매일 오전 9시'], ['weekly', '주 1회 (월요일)']] as const).map(([val, label]) => (
+              <button key={val} onClick={() => setAlertFreq(val)}
+                className={`px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${alertFreq === val ? 'bg-[#101828] text-white border-[#101828]' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 알림 종류별 개별 on/off */}
+        <div className="px-5 py-4 space-y-3.5">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-sm text-gray-700">키워드 신규 공고 매칭</span>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {keywords.length === 0 ? '키워드를 먼저 등록하면 켤 수 있습니다' : '모든 키워드의 매칭 공고를 이메일로도 받습니다'}
+              </p>
+            </div>
+            <Toggle enabled={allKeywordEmailOn} onChange={() => setAllEmailAlerts(!allKeywordEmailOn)} />
+          </div>
+          <div className="flex items-center justify-between border-t border-gray-50 pt-3.5">
+            <div>
+              <span className="text-sm text-gray-700">즐겨찾기 마감임박</span>
+              <p className="text-xs text-gray-400 mt-0.5">즐겨찾기한 공고의 마감일이 다가오면 이메일로 받습니다</p>
+            </div>
+            <Toggle enabled={favEmail} onChange={() => setFavEmail(v => !v)} />
+          </div>
         </div>
       </div>
 
@@ -216,27 +238,15 @@ export default function AlertsTab({ onGoTab }: { onGoTab: (tab: MyTab) => void }
             </div>
             <p className="text-xs text-gray-400 mt-2">마감 {favDays}일 전부터 알림을 발송합니다</p>
           </div>
-          {/* 알림 채널 */}
-          <div className="border-t border-gray-50 pt-4 space-y-3">
-            <p className="text-xs font-semibold text-gray-500">알림 채널</p>
+          {/* 알림 채널 — 이메일 발송 on/off는 위 "이메일 발송" 카드에서 통합 관리 */}
+          <div className="border-t border-gray-50 pt-4">
+            <p className="text-xs font-semibold text-gray-500 mb-3">알림 채널</p>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <svg style={{width:16,height:16}} fill="none" viewBox="0 0 24 24" stroke="#101828" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
                 <span className="text-sm text-gray-700">대시보드 알림</span>
               </div>
               <Toggle enabled={favDashboard} onChange={() => setFavDashboard(v => !v)} />
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <svg style={{width:16,height:16}} fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                <div>
-                  <span className="text-sm text-gray-700">이메일 발송</span>
-                  <span className="ml-1.5 text-[9px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full align-middle">자동</span>
-                  <span className="ml-2 text-xs text-[#315cff]">{me?.email ?? '불러오는 중...'}</span>
-                  <button onClick={() => onGoTab('profile')} className="ml-1.5 text-[10px] text-gray-300 hover:text-gray-500 underline transition-colors">변경</button>
-                </div>
-              </div>
-              <Toggle enabled={favEmail} onChange={() => setFavEmail(v => !v)} />
             </div>
           </div>
         </div>
