@@ -18,7 +18,7 @@
 | 테이블 | 저장하는 것 |
 |---|---|
 | employees | 사원 명부 (회원가입 때 사번+이름 대조용) |
-| users | 가입한 계정 (비밀번호는 암호화 저장) |
+| users | 가입한 계정 (비밀번호는 해시 저장) |
 | announcements | 수집해온 공고들 |
 | keywords | 사용자별 알림 키워드 |
 | saved_announcements | 사용자가 즐겨찾기한 공고 |
@@ -96,6 +96,16 @@ docker --version
 
 버전이 찍히면 성공입니다.
 
+Mac에서 Docker Desktop 설치에 관리자 권한이 없으면 Homebrew의 Docker CLI + Colima를 쓸 수 있습니다.
+
+```bash
+brew install docker docker-compose colima
+colima start --cpu 2 --memory 4 --disk 30
+```
+
+이 방식도 이후 명령은 동일합니다. `docker compose version`이 인식되지 않으면
+`docker-compose`를 사용하거나 Homebrew가 출력한 `cliPluginsExtraDirs` 설정을 적용하세요.
+
 ### 3-3. DB 켜기 (back/ 에서)
 
 ```bash
@@ -110,7 +120,7 @@ docker compose ps
 
 `STATUS`에 **healthy**가 보이면 MySQL이 켜진 겁니다. `starting`이면 30초쯤 기다렸다 다시 확인하세요. **healthy가 되기 전에는 다음 단계로 넘어가지 마세요.**
 
-> 🚨 **"port is already allocated" 에러가 나면**: 컴퓨터에 MySQL을 직접 설치한 적이 있는 겁니다 (예: `brew install mysql`). 기존 것을 끄거나(Mac: `brew services stop mysql`), `docker-compose.yml`의 포트를 `"3307:3306"`으로 바꾸고 3-5의 `.env` 포트도 3307로 맞추세요.
+> 🚨 **"port is already allocated" 에러가 나면**: 컴퓨터에 MySQL을 직접 설치한 적이 있는 겁니다 (예: `brew install mysql`). 기존 것을 끄거나(Mac: `brew services stop mysql`), `FORWARD_DB_PORT=3307 docker compose up -d --wait`로 실행하고 3-5의 `.env` 포트도 3307로 맞추세요.
 
 ### 3-4. Python 준비 (back/ 에서, 최초 1회)
 
@@ -152,7 +162,14 @@ VS Code 등 편집기로 `back/.env`를 열어 `DATABASE_URL=` 줄을 이렇게 
 DATABASE_URL=mysql+pymysql://forward:forward@localhost:3306/forward?charset=utf8mb4
 ```
 
-`forward`라는 DB와 계정은 3-3에서 컨테이너가 **자동으로 만들어**뒀습니다. 참고로 계정은 두 개입니다 — **forward/forward**(백엔드가 쓰는 계정)와 **root/root**(사람이 관리용으로 쓰는 계정). 둘 다 compose가 자동 생성했습니다.
+위에서 `FORWARD_DB_PORT=3307`을 사용했다면 `DATABASE_URL`과 `TEST_DATABASE_URL`의 포트도
+`3307`로 바꿉니다.
+
+`forward`와 테스트 전용 `forward_test` DB, 앱 계정은 3-3에서 컨테이너가 **자동으로 만들어**뒀습니다.
+참고로 계정은 두 개입니다 — **forward/forward**(백엔드가 쓰는 계정)와 **root/root**(사람이 관리용으로 쓰는 계정). 둘 다 compose가 자동 생성했습니다.
+
+`.env.example`에는 Docker 기본 접속 URL이 이미 들어 있으므로 포트를 바꾸지 않았다면 그대로 쓸 수 있습니다.
+테스트는 `forward_test`만 초기화하며 개발 데이터가 있는 `forward` DB는 건드리지 않습니다.
 
 ### 3-6. 테이블 만들기 + 데모 사원 넣기 (back/ 에서)
 
