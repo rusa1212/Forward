@@ -44,6 +44,13 @@ async def run_scheduled_collect() -> None:
 
 
 def start_scheduler() -> None:
+    # trigger 없이 add_job하면 APScheduler가 "지금 바로 1회" 실행으로 예약한다.
+    # 서버를 막 켰을 때 다음 정기 수집(06시/18시) 전까지 공고가 비어 보이는 문제 방지용.
+    scheduler.add_job(
+        run_scheduled_collect,
+        id="startup_announcement_collect",
+        replace_existing=True,
+    )
     scheduler.add_job(
         run_scheduled_collect,
         trigger=CronTrigger(hour=settings.COLLECT_CRON_HOURS, minute=settings.COLLECT_CRON_MINUTE),
@@ -52,7 +59,7 @@ def start_scheduler() -> None:
     )
     scheduler.start()
     logger.info(
-        "scheduler started: collect at hours=[%s] minute=%02d",
+        "scheduler started: startup collect + collect at hours=[%s] minute=%02d",
         settings.COLLECT_CRON_HOURS,
         settings.COLLECT_CRON_MINUTE,
     )
