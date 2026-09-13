@@ -25,7 +25,7 @@ def _bid_date_range(bid_from: str | None, bid_to: str | None) -> tuple[str, str]
 
 @router.get("/collect")
 async def collect(
-    bid_from: str | None = Query(None, description="나라장터 조회 시작 YYYYMMDDHHMM (기본: 오늘 00:00)"),
+    bid_from: str | None = Query(None, description="나라장터 조회 시작 YYYYMMDDHHMM (기본: 최근 30일 전 00:00)"),
     bid_to: str | None = Query(None, description="나라장터 조회 종료 YYYYMMDDHHMM (기본: 오늘 23:59)"),
     _admin: User = Depends(get_current_admin),
 ):
@@ -43,7 +43,7 @@ async def collect(
 
 @router.post("/collect")
 async def collect_and_save(
-    bid_from: str | None = Query(None, description="나라장터 조회 시작 YYYYMMDDHHMM (기본: 오늘 00:00)"),
+    bid_from: str | None = Query(None, description="나라장터 조회 시작 YYYYMMDDHHMM (기본: 최근 30일 전 00:00)"),
     bid_to: str | None = Query(None, description="나라장터 조회 종료 YYYYMMDDHHMM (기본: 오늘 23:59)"),
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
