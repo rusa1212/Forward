@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { useCountUp } from '@/hooks/useCountUp'
 
 /** KPI 스트립 — 단일 서피스를 헤어라인으로 4분할, 수치 위계 차등 (30/800 vs 24/700) */
@@ -7,6 +8,7 @@ export default function KpiStrip({ matchedCount, newTodayCount, urgentCount, sav
   urgentCount: number
   savedCount: number
 }) {
+  const navigate = useNavigate()
   const matched = useCountUp(matchedCount)
   const newToday = useCountUp(newTodayCount)
   const urgent = useCountUp(urgentCount)
@@ -35,13 +37,16 @@ export default function KpiStrip({ matchedCount, newTodayCount, urgentCount, sav
         </p>
         <p className="mt-2 text-xs text-muted2 whitespace-nowrap">D-3 이내</p>
       </div>
-      <div className="min-w-[160px] box-border px-7 py-5">
+      <button
+        onClick={() => navigate('/mypage/saved')}
+        className="pressable min-w-[160px] box-border px-7 py-5 text-left hover:bg-subtle transition-colors"
+      >
         <p className="text-[13px] font-medium text-body">저장한 공고</p>
         <p className="mt-1.5 text-2xl font-bold text-body tabular-nums leading-none">
           {saved}<span className="text-sm font-semibold text-muted2 ml-1">건</span>
         </p>
-        <p className="mt-2 text-xs text-muted2 whitespace-nowrap">즐겨찾기 목록</p>
-      </div>
+        <p className="mt-2 text-xs text-muted2 whitespace-nowrap">즐겨찾기 목록 보기</p>
+      </button>
     </div>
   )
 }

@@ -27,6 +27,7 @@ export default function App() {
         <Route path="/search" element={<RequireNonAdmin><SearchPage /></RequireNonAdmin>} />
         <Route path="/mypage" element={<RequireNonAdmin><MyPage /></RequireNonAdmin>} />
         <Route path="/mypage/keywords" element={<RequireNonAdmin><MyPage /></RequireNonAdmin>} />
+        <Route path="/mypage/saved" element={<RequireNonAdmin><MyPage /></RequireNonAdmin>} />
         <Route path="/mypage/alerts" element={<RequireNonAdmin><MyPage /></RequireNonAdmin>} />
         <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
       </Route>

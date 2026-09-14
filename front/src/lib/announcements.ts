@@ -2,7 +2,7 @@ import { api } from './api'
 import type { Announcement, StatusType } from '@/types'
 
 /** back/app/api/v1/announcements.py의 _serialize()가 실제로 내려주는 필드. */
-interface ApiAnnouncement {
+export interface ApiAnnouncement {
   id: string
   source: string
   external_id: string
@@ -88,4 +88,22 @@ export async function listAnnouncements(query: AnnouncementQuery) {
 export async function getAnnouncementDetail(id: string): Promise<Announcement> {
   const { data } = await api.get<ApiAnnouncement>(`/announcements/${id}`)
   return mapAnnouncement(data)
+}
+
+/** back/app/api/v1/saved_announcements.py의 _serialize()가 실제로 내려주는 필드. */
+interface ApiSavedAnnouncement {
+  id: string
+  savedAt: string
+  announcement: ApiAnnouncement
+}
+
+export interface SavedAnnouncement {
+  id: string
+  savedAt: string
+  announcement: Announcement
+}
+
+export async function listSavedAnnouncements(): Promise<SavedAnnouncement[]> {
+  const { data } = await api.get<ApiSavedAnnouncement[]>('/saved-announcements')
+  return data.map(row => ({ id: row.id, savedAt: row.savedAt, announcement: mapAnnouncement(row.announcement) }))
 }
