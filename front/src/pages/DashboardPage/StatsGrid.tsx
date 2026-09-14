@@ -30,7 +30,7 @@ export default function KpiStrip({ matchedCount, newTodayCount, urgentCount, sav
         onClick={() => navigate('/dashboard/list?type=new')}
         className="pressable min-w-[160px] box-border px-7 py-5 text-left hover:bg-subtle transition-colors"
       >
-        <p className="text-[13px] font-medium text-body">오늘 신규</p>
+        <p className="text-[13px] font-medium text-body">오늘 매칭된 공고</p>
         <p className="mt-1.5 text-[30px] font-extrabold text-strong tabular-nums leading-none">
           {newToday}<span className="text-sm font-semibold text-muted2 ml-1">건</span>
         </p>

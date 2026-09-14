@@ -20,7 +20,7 @@ const CONFIG: Record<ListType, {
   sort: 'latest' | 'deadline'
 }> = {
   matched: { title: '매칭 공고', subtitle: '구독 키워드에 매칭된 전체 공고입니다.', sort: 'latest' },
-  new: { title: '오늘 신규', subtitle: '오늘 새로 수집되어 구독 키워드에 매칭된 공고입니다.', collectedToday: true, sort: 'latest' },
+  new: { title: '오늘 매칭된 공고', subtitle: '오늘 새로 수집되어 구독 키워드에 매칭된 공고입니다.', collectedToday: true, sort: 'latest' },
   urgent: { title: '마감 임박', subtitle: '구독 키워드에 매칭된 공고 중 마감이 3일 이내로 다가온 공고입니다.', statusLabel: '마감임박', sort: 'deadline' },
 }
 
@@ -28,7 +28,7 @@ function isListType(value: string | null): value is ListType {
   return value === 'matched' || value === 'new' || value === 'urgent'
 }
 
-/** 대시보드 KPI 카드(매칭 공고/오늘 신규/마감 임박) 전용 결과 화면 — 검색 페이지를
+/** 대시보드 KPI 카드(매칭 공고/오늘 매칭된 공고/마감 임박) 전용 결과 화면 — 검색 페이지를
  * 재사용하지 않고 독립된 페이지로 보여준다(?type=matched|new|urgent). */
 export default function ListPage() {
   const navigate = useNavigate()

@@ -11,15 +11,14 @@ interface ApiKeyword {
   createdAt: string
   dashboardAlert: boolean
   emailAlert: boolean
+  matchCount: number
 }
 
 function mapKeyword(raw: ApiKeyword): Keyword {
-  // matchCount(키워드별 매칭 건수)는 alert_settings와 성격이 다른 별도 집계값이라
-  // 이번 범위 밖이다 (docs/fe/alert-settings-API-제안.md 6-4절) — 여전히 0 고정.
   return {
     id: raw.id,
     name: raw.keyword,
-    matchCount: 0,
+    matchCount: raw.matchCount,
     dashboardAlert: raw.dashboardAlert,
     emailAlert: raw.emailAlert,
   }
