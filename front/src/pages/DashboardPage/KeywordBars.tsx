@@ -24,9 +24,14 @@ export default function KeywordBars({ keywords }: { keywords: Keyword[] }) {
       ) : (
         <div className="mt-4 space-y-4">
           {keywords.map(k => (
-            <div key={k.id}>
+            <button
+              key={k.id}
+              onClick={() => navigate(`/search?q=${encodeURIComponent(k.name)}`)}
+              className="pressable block w-full text-left group"
+              aria-label={`${k.name} 매칭 공고 보기`}
+            >
               <div className="flex items-baseline justify-between mb-1.5">
-                <span className="text-[13px] font-medium text-strong">{k.name}</span>
+                <span className="text-[13px] font-medium text-strong group-hover:text-primary2 transition-colors">{k.name}</span>
                 <span className="text-xs text-muted2 tabular-nums whitespace-nowrap">{k.matchCount}건</span>
               </div>
               <div className="h-1.5 rounded-full bg-[#f2f4f7] overflow-hidden">
@@ -35,7 +40,7 @@ export default function KeywordBars({ keywords }: { keywords: Keyword[] }) {
                   style={{ width: `${Math.round((k.matchCount / max) * 100)}%` }}
                 />
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}

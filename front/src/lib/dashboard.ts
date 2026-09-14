@@ -7,12 +7,14 @@ import type { Announcement } from '@/types'
 interface ApiDashboardSummary {
   counts: { matched: number; newToday: number; urgent: number; saved: number }
   matched: Parameters<typeof mapAnnouncement>[0][]
+  urgent: Parameters<typeof mapAnnouncement>[0][]
   saved: Parameters<typeof mapAnnouncement>[0][]
 }
 
 export interface DashboardSummary {
   counts: ApiDashboardSummary['counts']
   matched: Announcement[]
+  urgent: Announcement[]
   saved: Announcement[]
 }
 
@@ -21,6 +23,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   return {
     counts: data.counts,
     matched: data.matched.map(mapAnnouncement),
+    urgent: data.urgent.map(mapAnnouncement),
     saved: data.saved.map(mapAnnouncement),
   }
 }

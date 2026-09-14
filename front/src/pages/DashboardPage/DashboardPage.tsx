@@ -13,6 +13,7 @@ import UrgentPanel from './UrgentPanel'
 const EMPTY_SUMMARY: DashboardSummary = {
   counts: { matched: 0, newToday: 0, urgent: 0, saved: 0 },
   matched: [],
+  urgent: [],
   saved: [],
 }
 
@@ -105,8 +106,7 @@ export default function DashboardPage() {
   const resetLayout = () => updateLayout({ order: [...DEFAULT_ORDER], hidden: [] })
 
   const keywordNames = keywords.map(k => k.name)
-  const { counts, matched } = summary
-  const urgentAds = matched.filter(a => a.dday !== null && a.dday >= 0 && a.dday <= 3)
+  const { counts, matched, urgent: urgentAds } = summary
 
   const now = new Date()
   const dateLabel = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')} (${WEEKDAYS[now.getDay()]})`

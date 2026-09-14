@@ -75,9 +75,22 @@ def get_dashboard_summary(
             .order_by(*SORT_OPTIONS["latest"])
             .limit(MATCHED_FEED_LIMIT)
         ).scalars().all()
+
+        # "마감 임박" 위젯(UrgentPanel.tsx) 전용 목록. matched_rows(최신순 상위
+        # MATCHED_FEED_LIMIT건)에서 다시 걸러내면, 정작 마감임박인 공고가 최신 10건
+        # 밖에 있을 때 urgent_count(집계)와 위젯에 뜨는 실제 목록이 서로 달라진다
+        # (R&D Monitor 회의 피드백 5번) — 그래서 별도로 마감 임박 기준(_status_label_expr)에
+        # 맞춰 마감일 오름차순으로 직접 조회한다.
+        urgent_rows = db.execute(
+            select(Announcement)
+            .where(match_condition, _status_label_expr() == "마감임박")
+            .order_by(Announcement.reception_end.asc())
+            .limit(MATCHED_FEED_LIMIT)
+        ).scalars().all()
     else:
         matched_count = new_today_count = urgent_count = 0
         matched_rows = []
+        urgent_rows = []
 
     saved_stmt = (
         select(Announcement)
@@ -97,6 +110,7 @@ def get_dashboard_summary(
                 "saved": len(saved_rows),
             },
             "matched": [_serialize(row) for row in matched_rows],
+            "urgent": [_serialize(row) for row in urgent_rows],
             "saved": [_serialize(row) for row in saved_rows],
         },
     }
