@@ -60,7 +60,7 @@ export default function MatchedFeed({ matchedAds, newTodayCount, keywordNames, o
       )}
 
       <div className="mt-auto px-7 py-3 border-t border-line">
-        <button onClick={() => navigate('/search?matched=1')} className="text-[13px] font-medium text-primary2 hover:text-primary-hover">
+        <button onClick={() => navigate('/dashboard/list?type=matched')} className="text-[13px] font-medium text-primary2 hover:text-primary-hover">
           전체 {matchedAds.length}건 보기 ›
         </button>
       </div>

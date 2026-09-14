@@ -8,24 +8,32 @@ import uuid
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
 from app.core.errors import AppError
-from app.db.models import Keyword, User
+from app.db.models import Announcement, Keyword, User
 from app.db.session import get_db
 
 router = APIRouter(prefix="/keywords", tags=["keywords"])
 
 
-def _serialize(row: Keyword) -> dict:
+def _match_count(db: Session, keyword_text: str) -> int:
+    """대시보드 매칭 집계(dashboard.py)와 동일한 규칙(제목 부분일치)으로 키워드 1개의 매칭 건수를 센다."""
+    return db.execute(
+        select(func.count()).select_from(Announcement).where(Announcement.title.ilike(f"%{keyword_text}%"))
+    ).scalar_one()
+
+
+def _serialize(row: Keyword, match_count: int) -> dict:
     return {
         "id": str(row.id),
         "keyword": row.keyword,
         "createdAt": row.created_at,
         "dashboardAlert": row.dashboard_alert,
         "emailAlert": row.email_alert,
+        "matchCount": match_count,
     }
 
 
@@ -51,7 +59,7 @@ def list_keywords(
 ):
     stmt = select(Keyword).where(Keyword.user_id == current_user.id).order_by(Keyword.created_at.asc())
     rows = db.execute(stmt).scalars().all()
-    return {"success": True, "data": [_serialize(row) for row in rows]}
+    return {"success": True, "data": [_serialize(row, _match_count(db, row.keyword)) for row in rows]}
 
 
 class KeywordCreateRequest(BaseModel):
@@ -79,7 +87,7 @@ def create_keyword(
     db.commit()
     db.refresh(row)
 
-    return {"success": True, "data": _serialize(row)}
+    return {"success": True, "data": _serialize(row, _match_count(db, row.keyword))}
 
 
 @router.delete("/{keyword_id}")
@@ -119,4 +127,4 @@ def update_keyword_alerts(
     db.commit()
     db.refresh(row)
 
-    return {"success": True, "data": _serialize(row)}
+    return {"success": True, "data": _serialize(row, _match_count(db, row.keyword))}

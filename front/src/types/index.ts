@@ -1,5 +1,5 @@
 export type Page = 'login' | 'signup' | 'signupDone' | 'dashboard' | 'search' | 'mypage' | 'mypage-keywords'
-export type MyTab = 'profile' | 'keywords' | 'alerts'
+export type MyTab = 'profile' | 'keywords' | 'alerts' | 'saved'
 export type StatusType = '접수중' | '접수예정' | '마감임박' | '마감' | '기한미정'
 export type SortType = 'latest' | 'deadline' | 'title'
 

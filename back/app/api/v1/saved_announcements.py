@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.v1.announcements import _status_label
+from app.api.v1.announcements import _serialize as _serialize_announcement
 from app.api.v1.auth import get_current_user
 from app.core.errors import AppError
 from app.db.models import Announcement, SavedAnnouncement, User
@@ -19,19 +19,16 @@ router = APIRouter(prefix="/saved-announcements", tags=["saved-announcements"])
 
 
 def _serialize(row: SavedAnnouncement, announcement: Announcement) -> dict:
+    """announcement는 announcements.py의 _serialize()와 동일한 형태로 내려준다.
+
+    FE가 GET /announcements가 내려주는 것과 똑같은 필드(dday, statusLabel, source 등)를
+    받아 mapAnnouncement()를 그대로 재사용할 수 있게 하기 위함
+    (R&D Monitor 회의 피드백 3번: 저장한 공고 목록 화면).
+    """
     return {
         "id": str(row.id),
         "savedAt": row.saved_at,
-        "announcement": {
-            "id": str(announcement.id),
-            "title": announcement.title,
-            "department": announcement.department,
-            "status": announcement.status,
-            "statusLabel": _status_label(announcement.reception_start, announcement.reception_end),
-            "receptionStart": announcement.reception_start,
-            "receptionEnd": announcement.reception_end,
-            "detailUrl": announcement.detail_url,
-        },
+        "announcement": _serialize_announcement(announcement),
     }
 
 

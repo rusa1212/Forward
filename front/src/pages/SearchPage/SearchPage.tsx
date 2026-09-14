@@ -28,7 +28,13 @@ export default function SearchPage() {
   const initialQuery = searchParams.get('q') ?? ''
   const [keyword, setKeyword] = useState(initialQuery)
   const [query, setQuery] = useState(initialQuery)
-  const [selectedStatus, setSelectedStatus] = useState<'전체' | StatusType>('전체')
+
+  // 대시보드 "마감 임박" KPI(?matched=1&status=마감임박)처럼, 특정 상태로 미리 필터링된
+  // 채로 들어오는 경우를 반영한다.
+  const initialStatus = STATUS_TYPES.includes(searchParams.get('status') as StatusType)
+    ? (searchParams.get('status') as StatusType)
+    : '전체'
+  const [selectedStatus, setSelectedStatus] = useState<'전체' | StatusType>(initialStatus)
   const [sort, setSort] = useState<SortType>('latest')
   const [currentPage, setCurrentPage] = useState(1)
 

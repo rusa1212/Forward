@@ -40,9 +40,28 @@ def test_dashboard_counts_keyword_match(client, db, make_user):
 
     res = client.get("/api/v1/dashboard/summary", headers=user["headers"])
     assert res.status_code == 200
-    counts = res.json()["data"]["counts"]
-    assert counts["matched"] == 1
-    assert counts["urgent"] == 1
+    data = res.json()["data"]
+    assert data["counts"]["matched"] == 1
+    assert data["counts"]["urgent"] == 1
+    assert [row["title"] for row in data["urgent"]] == ["AI 기반 시스템 개발"]
+
+
+def test_dashboard_urgent_list_independent_of_matched_feed_limit(client, db, make_user):
+    """urgent 목록은 matched 상위 N건 안에 없어도 별도로 정확히 뽑혀야 한다
+    (R&D Monitor 회의 피드백 5번 — KPI 숫자와 위젯 목록이 서로 다르던 버그)."""
+    user = make_user()
+    client.post("/api/v1/keywords", json={"keyword": "AI"}, headers=user["headers"])
+
+    # matched_rows는 최신(수집순) 상위 10건만 보여준다 — 마감임박 공고를 11번째로 만들어
+    # "최신 10건 안에서만 urgent를 다시 거르면" 버그가 재현되게 한다.
+    for i in range(10):
+        _make_announcement(db, f"ext-fresh-{i}", f"AI 최신 공고 {i}", reception_end_offset_days=30)
+    urgent_id = _make_announcement(db, "ext-urgent", "AI 마감임박 공고", reception_end_offset_days=1)
+
+    res = client.get("/api/v1/dashboard/summary", headers=user["headers"])
+    data = res.json()["data"]
+    assert data["counts"]["urgent"] == 1
+    assert [row["id"] for row in data["urgent"]] == [urgent_id]
 
 
 def test_trend_requires_login(client):

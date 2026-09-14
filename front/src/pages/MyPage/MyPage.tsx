@@ -3,22 +3,26 @@ import { cn } from '@/lib/utils'
 import ProfileTab from './ProfileTab'
 import KeywordsTab from './KeywordsTab'
 import AlertsTab from './AlertsTab'
+import SavedTab from './SavedTab'
 import type { MyTab } from '@/types'
 
 const TABS: [MyTab, string][] = [
   ['profile', '프로필'],
   ['keywords', '키워드'],
+  ['saved', '저장한 공고'],
   ['alerts', '알림 설정'],
 ]
 
 const TAB_PATH: Record<MyTab, string> = {
   profile: '/mypage',
   keywords: '/mypage/keywords',
+  saved: '/mypage/saved',
   alerts: '/mypage/alerts',
 }
 
 function tabFromPath(pathname: string): MyTab {
   if (pathname.startsWith('/mypage/keywords')) return 'keywords'
+  if (pathname.startsWith('/mypage/saved')) return 'saved'
   if (pathname.startsWith('/mypage/alerts')) return 'alerts'
   return 'profile'
 }
@@ -58,6 +62,7 @@ export default function MyPage() {
       <div className="rise rise-2">
         {tab === 'profile' && <ProfileTab />}
         {tab === 'keywords' && <KeywordsTab />}
+        {tab === 'saved' && <SavedTab />}
         {tab === 'alerts' && <AlertsTab onGoTab={goTab} />}
       </div>
     </div>

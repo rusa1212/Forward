@@ -1,3 +1,34 @@
+import uuid
+
+from app.db.models import Announcement
+
+
+def _make_announcement(db, external_id, title) -> str:
+    ann = Announcement(
+        id=str(uuid.uuid4()),
+        source="kstartup",
+        external_id=external_id,
+        title=title,
+        department="과기정통부",
+        status="Y",
+    )
+    db.add(ann)
+    db.commit()
+    return ann.id
+
+
+def test_keyword_match_count_reflects_matching_announcements(client, db, make_user):
+    user = make_user()
+    client.post("/api/v1/keywords", json={"keyword": "AI"}, headers=user["headers"])
+    _make_announcement(db, "ext-1", "AI 기반 시스템 개발")
+    _make_announcement(db, "ext-2", "AI 창업 지원")
+    _make_announcement(db, "ext-3", "스마트시티 통합플랫폼")  # 매칭 안 됨
+
+    res = client.get("/api/v1/keywords", headers=user["headers"])
+    assert res.status_code == 200
+    assert res.json()["data"][0]["matchCount"] == 2
+
+
 def test_create_and_list_keyword(client, make_user):
     user = make_user()
     res = client.post("/api/v1/keywords", json={"keyword": "AI"}, headers=user["headers"])

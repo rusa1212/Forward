@@ -15,7 +15,7 @@ FE의 StatusType(접수중/접수예정/마감임박/마감/기한미정)에 맞
   잘못 안내할 수 있어 별도 카테고리로 뺐습니다).
 """
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import case, func, or_, select
@@ -26,6 +26,20 @@ from app.db.models import Announcement
 from app.db.session import get_db
 
 router = APIRouter(tags=["announcements"])
+
+# collected_at은 항상 UTC로 저장된다(session.py). "오늘"은 사용자 기준(KST)이라서
+# UTC 그대로 date.today()와 비교하면 하루 중 특정 시간대(특히 06:00 KST 자동 수집 직후)에
+# 실제로는 오늘 수집된 공고인데도 걸러지지 않는다. collected_at을 KST로 변환한 뒤
+# KST 기준 "오늘"과 비교해야 서버 OS 타임존과 무관하게 맞는다. (dashboard.py와 공유)
+KST_OFFSET = timedelta(hours=9)
+
+
+def _today_kst() -> date:
+    return (datetime.utcnow() + KST_OFFSET).date()
+
+
+def _collected_today_expr():
+    return func.date(func.convert_tz(Announcement.collected_at, "+00:00", "+09:00")) == _today_kst()
 
 # 5-1plan.md "정렬 권장 기준" 표 그대로 반영
 # DB 전환 노트: MySQL은 NULLS LAST 문법이 없어 (컬럼 IS NULL) ASC를 앞에 두는 방식으로 대체
@@ -115,6 +129,7 @@ def list_announcements(
     ),
     department: str | None = Query(None, description="기관/부서 필터"),
     source: str | None = Query(None, description="수집 출처 필터 (kstartup, narajangteo, msit)"),
+    collectedToday: bool = Query(False, description="오늘(KST 기준) 수집된 공고만"),
     sort: str = Query("latest", description="정렬 기준: latest | deadline | title"),
     page: int = Query(1, ge=1, description="페이지 번호 (1부터 시작)"),
     page_size: int = Query(20, ge=1, le=100, description="페이지당 개수"),
@@ -143,6 +158,8 @@ def list_announcements(
         conditions.append(Announcement.department == department)
     if source:
         conditions.append(Announcement.source == source)
+    if collectedToday:
+        conditions.append(_collected_today_expr())
 
     count_stmt = select(func.count()).select_from(Announcement)
     list_stmt = select(Announcement)
