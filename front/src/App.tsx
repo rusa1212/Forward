@@ -8,6 +8,7 @@ import LoginPage from '@/pages/LoginPage'
 import SignupPage from '@/pages/SignupPage'
 import SignupDonePage from '@/pages/SignupDonePage'
 import DashboardPage from '@/pages/DashboardPage/DashboardPage'
+import ListPage from '@/pages/DashboardPage/ListPage'
 import SearchPage from '@/pages/SearchPage/SearchPage'
 import MyPage from '@/pages/MyPage/MyPage'
 import AdminPage from '@/pages/AdminPage/AdminPage'
@@ -24,6 +25,7 @@ export default function App() {
 
       <Route element={<RequireAuth><MainLayout /></RequireAuth>}>
         <Route path="/dashboard" element={<RequireNonAdmin><DashboardPage /></RequireNonAdmin>} />
+        <Route path="/dashboard/list" element={<RequireNonAdmin><ListPage /></RequireNonAdmin>} />
         <Route path="/search" element={<RequireNonAdmin><SearchPage /></RequireNonAdmin>} />
         <Route path="/mypage" element={<RequireNonAdmin><MyPage /></RequireNonAdmin>} />
         <Route path="/mypage/keywords" element={<RequireNonAdmin><MyPage /></RequireNonAdmin>} />

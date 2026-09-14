@@ -67,6 +67,8 @@ export interface AnnouncementQuery {
    */
   keywords?: string[]
   statusLabel?: StatusType
+  /** 오늘(KST 기준) 수집된 공고만 — 대시보드 "오늘 신규" 카드 전용 필터. */
+  collectedToday?: boolean
   sort?: 'latest' | 'deadline' | 'title'
   page?: number
   pageSize?: number
@@ -77,6 +79,7 @@ export async function listAnnouncements(query: AnnouncementQuery) {
   if (query.q) params.set('q', query.q)
   for (const kw of query.keywords ?? []) params.append('keywords', kw)
   if (query.statusLabel) params.set('statusLabel', query.statusLabel)
+  if (query.collectedToday) params.set('collectedToday', 'true')
   params.set('sort', query.sort ?? 'latest')
   params.set('page', String(query.page ?? 1))
   params.set('page_size', String(query.pageSize ?? 8))

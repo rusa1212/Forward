@@ -17,7 +17,7 @@ export default function KpiStrip({ matchedCount, newTodayCount, urgentCount, sav
   return (
     <div className="rise rise-2 bg-surface border border-line rounded-xl grid grid-cols-2 lg:grid-cols-4 divide-x divide-line overflow-hidden">
       <button
-        onClick={() => navigate('/search?matched=1')}
+        onClick={() => navigate('/dashboard/list?type=matched')}
         className="pressable min-w-[160px] box-border px-7 py-5 text-left hover:bg-subtle transition-colors"
       >
         <p className="text-[13px] font-medium text-body">매칭 공고</p>
@@ -27,7 +27,7 @@ export default function KpiStrip({ matchedCount, newTodayCount, urgentCount, sav
         <p className="mt-2 text-xs text-muted2">구독 키워드 기준 누적</p>
       </button>
       <button
-        onClick={() => navigate('/search?matched=1')}
+        onClick={() => navigate('/dashboard/list?type=new')}
         className="pressable min-w-[160px] box-border px-7 py-5 text-left hover:bg-subtle transition-colors"
       >
         <p className="text-[13px] font-medium text-body">오늘 신규</p>
@@ -37,7 +37,7 @@ export default function KpiStrip({ matchedCount, newTodayCount, urgentCount, sav
         <p className="mt-2 text-xs font-medium text-success whitespace-nowrap">오늘 09:00 수집분</p>
       </button>
       <button
-        onClick={() => navigate(`/search?matched=1&status=${encodeURIComponent('마감임박')}`)}
+        onClick={() => navigate('/dashboard/list?type=urgent')}
         className="pressable min-w-[160px] box-border px-7 py-5 text-left hover:bg-subtle transition-colors"
       >
         <p className="text-[13px] font-medium text-body">마감 임박</p>
