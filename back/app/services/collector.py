@@ -30,10 +30,15 @@ MAX_PAGES = 30
 # 훨씬 큰 별도 안전장치를 둔다(100건/페이지 기준 최대 30,000건).
 BID_MAX_PAGES = 300
 
+# R&D Monitor 회의 피드백(docs/feedback.md 1번): 진행 중인 공고뿐 아니라 최근 마감된
+# 공고도 일정 기간 함께 보여달라는 요청 — 마감 후에도 이 기간만큼은 목록에 남겨둔다.
+RECENT_CLOSED_DAYS = 90
+
 # 나라장터는 조회 기간(inqryBgnDt~inqryEndDt)이 필수라 "전체 기간"을 조회할 수 없다.
-# "오늘 하루"만 보면 이미 공고돼서 아직 마감 안 된 과거 공고를 놓치므로,
-# 모집 중인 공고를 폭넓게 잡기 위해 최근 N일을 기본 조회 기간으로 삼는다.
-BID_LOOKBACK_DAYS = 30
+# "오늘 하루"만 보면 이미 공고돼서 아직 마감 안 된 과거 공고를 놓치므로, 모집 중인 공고를
+# 폭넓게 잡으면서 동시에 RECENT_CLOSED_DAYS 이내에 마감된 공고까지 함께 잡을 수 있도록
+# 최근 N일을 기본 조회 기간으로 삼는다(RECENT_CLOSED_DAYS와 동일하게 맞춤).
+BID_LOOKBACK_DAYS = RECENT_CLOSED_DAYS
 
 
 def _service_key() -> str:
@@ -68,10 +73,12 @@ async def fetch_kstartup(
 
     실측 결과 이 API는 마감일 기준 최신순으로 내려오고 totalCount가 30,000건을 넘는
     역대 전체 아카이브다(2026-09 기준). 그 전부를 매번 훑는 건 비현실적이라, 한 페이지
-    전체가 이미 마감(rcrt_prgs_yn=="N")된 항목뿐이면 그 뒤로는 더 오래된 마감 공고만
-    나온다고 보고 그 페이지에서 멈춘다. "모집 중인 모든 공고"가 목적이므로 반환값에는
-    모집중(Y) 항목만 담는다 — 마감(N) 항목은 중단 시점 판단에만 쓰고 버린다.
+    전체가 모집중(Y)도 아니고 RECENT_CLOSED_DAYS 이내에 마감된 것도 아니면 그 뒤로는
+    더 오래된 마감 공고만 나온다고 보고 그 페이지에서 멈춘다. "모집 중인 공고 + 최근
+    RECENT_CLOSED_DAYS일 이내 마감 공고"가 목적이므로 반환값에는 그 조건을 만족하는
+    항목만 담는다 — 그보다 오래된 마감 항목은 중단 시점 판단에만 쓰고 버린다.
     """
+    cutoff_date = date.today() - timedelta(days=RECENT_CLOSED_DAYS)
     items = []
     for page in range(1, max_pages + 1):
         res = await client.get(
@@ -103,9 +110,13 @@ async def fetch_kstartup(
 
         if not page_items:
             break
-        open_items = [it for it in page_items if it["status"] == "Y"]
-        items.extend(open_items)
-        if not open_items:
+        keep_items = [
+            it
+            for it in page_items
+            if it["status"] == "Y" or (it["end_date"] is not None and it["end_date"] >= cutoff_date)
+        ]
+        items.extend(keep_items)
+        if not keep_items:
             break
         if len(page_items) < per_page:
             break
@@ -128,13 +139,14 @@ async def fetch_bid_public_info(
     가져온다 — BID_MAX_PAGES는 totalCount가 비정상적으로 크게 와도 무한 호출하지
     않기 위한 안전장치일 뿐, 정상 응답에서는 도달하지 않는 게 정상이다.
 
-    "모집 중인 모든 공고"가 목적이므로 반환값에는 아직 마감되지 않은(bidClseDt가
-    없거나 오늘 이후인) 항목만 담는다 — 이미 마감된 입찰은 페이지 순회 진행 판단에만
-    쓰고 버린다.
+    "모집 중인 공고 + 최근 RECENT_CLOSED_DAYS일 이내 마감 공고"가 목적이므로 반환값에는
+    아직 마감되지 않았거나(bidClseDt가 없거나 오늘 이후) 마감된 지 RECENT_CLOSED_DAYS일이
+    안 된 항목만 담는다 — 그보다 오래전에 마감된 입찰은 버린다.
     """
     items = []
     fetched_count = 0
     today = date.today()
+    cutoff_date = today - timedelta(days=RECENT_CLOSED_DAYS)
     total_count: int | None = None
     for page_no in range(1, max_pages + 1):
         res = await client.get(
@@ -178,7 +190,9 @@ async def fetch_bid_public_info(
         if not page_items:
             break
         fetched_count += len(page_items)
-        items.extend(it for it in page_items if it["end_date"] is None or it["end_date"] >= today)
+        items.extend(
+            it for it in page_items if it["end_date"] is None or it["end_date"] >= cutoff_date
+        )
         if len(page_items) < num_of_rows:
             break
         if total_count is not None and fetched_count >= total_count:
