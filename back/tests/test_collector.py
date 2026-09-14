@@ -5,8 +5,13 @@ import httpx
 
 from app.core.config import settings
 from app.services.collector import (
+    BID_WINDOW_DAYS,
     RECENT_CLOSED_DAYS,
+    BidApiError,
+    _bid_response_body,
     _service_key,
+    _split_bid_windows,
+    collect_all,
     fetch_bid_public_info,
     fetch_kstartup,
 )
@@ -136,3 +141,138 @@ def test_fetch_bid_public_info_keeps_open_and_recent_closed(monkeypatch):
         "recent-closed-1",
         "no-close-date-1",
     }
+
+
+def test_split_bid_windows_splits_long_range_into_max_window_days_chunks():
+    # 90일 요청 -> BID_WINDOW_DAYS(30일) 이하 구간들로 쪼개지고, 각 구간은 원래 요청
+    # 범위를 벗어나지 않으며 이어붙이면 빈틈/겹침 없이 전체 구간을 덮어야 한다.
+    windows = _split_bid_windows("202606160000", "202609142359")
+
+    assert len(windows) >= 3
+    for bgn, end in windows:
+        from datetime import datetime
+
+        span_days = (datetime.strptime(end, "%Y%m%d%H%M") - datetime.strptime(bgn, "%Y%m%d%H%M")).days
+        assert span_days <= BID_WINDOW_DAYS
+    assert windows[0][1] == "202609142359"  # 가장 최근 구간의 끝은 요청한 종료 시각
+    assert windows[-1][0] == "202606160000"  # 가장 과거 구간의 시작은 요청한 시작 시각
+
+
+def test_split_bid_windows_short_range_stays_single_window():
+    windows = _split_bid_windows("202601010000", "202601202359")
+    assert windows == [("202601010000", "202601202359")]
+
+
+def test_fetch_bid_public_info_survives_one_window_failing(monkeypatch):
+    """구간 하나가 실패(타임아웃 등)해도 나머지 구간의 정상 데이터는 반환돼야 한다."""
+    monkeypatch.setattr(settings, "DATA_GO_KR_API_KEY", "key")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        bgn = request.url.params["inqryBgnDt"]
+        if bgn == "202606160000":
+            raise httpx.ReadTimeout("simulated timeout", request=request)
+        return httpx.Response(
+            200,
+            json={
+                "response": {
+                    "header": {"resultCode": "00", "resultMsg": "정상"},
+                    "body": {
+                        "totalCount": 1,
+                        "items": [
+                            {
+                                "bidNtceNo": "ok",
+                                "bidNtceOrd": "1",
+                                "bidNtceNm": "정상 구간 공고",
+                                "ntceInsttNm": "agency",
+                                "dminsttNm": "dept",
+                                "ntceKindNm": "공고",
+                                "bidNtceDt": "2026-09-01 00:00:00",
+                                "bidBeginDt": "2026-09-01 00:00:00",
+                                "bidClseDt": None,
+                            }
+                        ],
+                    },
+                }
+            },
+        )
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await fetch_bid_public_info(client, "202606160000", "202609142359")
+
+    result = asyncio.run(run())
+
+    assert {it["external_id"] for it in result} == {"ok-1"}
+
+
+def test_bid_response_body_raises_on_error_payload():
+    """resultCode가 00이 아니면(예: 조회기간 초과) 조용히 빈 값으로 넘어가지 않고 예외를 던진다."""
+    error_payload = {
+        "nkoneps.com.response.ResponseError": {
+            "header": {"resultCode": "07", "resultMsg": "입력범위값 초과 에러"}
+        }
+    }
+    try:
+        _bid_response_body(error_payload)
+        assert False, "BidApiError가 발생해야 한다"
+    except BidApiError as e:
+        assert "07" in str(e)
+
+
+def test_bid_response_body_returns_body_on_success():
+    payload = {"response": {"header": {"resultCode": "00", "resultMsg": "정상"}, "body": {"totalCount": 0}}}
+    assert _bid_response_body(payload) == {"totalCount": 0}
+
+
+def test_fetch_bid_public_info_survives_api_error_response():
+    """구간 하나가 API 오류(resultCode != 00)로 실패해도 예외를 전파하지 않고 빈 결과로 넘어간다."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "nkoneps.com.response.ResponseError": {
+                    "header": {"resultCode": "07", "resultMsg": "입력범위값 초과 에러"}
+                }
+            },
+        )
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await fetch_bid_public_info(client, "202601010000", "202601312359")
+
+    result = asyncio.run(run())
+    assert result == []
+
+
+def test_collect_all_isolates_source_failures(monkeypatch):
+    """한 소스가 실패해도 나머지 소스는 정상적으로 저장 대상에 포함돼야 한다."""
+    monkeypatch.setattr(settings, "DATA_GO_KR_API_KEY", "key")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "BidPublicInfoService" in url:
+            raise httpx.ReadTimeout("simulated timeout", request=request)
+        if "kisedKstartupService01" in url:
+            return httpx.Response(200, text="<response><body><items></items></body></response>")
+        # msit
+        return httpx.Response(200, json={"response": [{"body": {"items": []}}]})
+
+    async def run():
+        import app.services.collector as collector_module
+
+        orig_client_cls = httpx.AsyncClient
+
+        class PatchedClient(orig_client_cls):
+            def __init__(self, *args, **kwargs):
+                kwargs["transport"] = httpx.MockTransport(handler)
+                super().__init__(*args, **kwargs)
+
+        monkeypatch.setattr(collector_module.httpx, "AsyncClient", PatchedClient)
+        return await collect_all("202601010000", "202601312359")
+
+    result = asyncio.run(run())
+
+    assert result["narajangteo"] == []  # 실패한 소스는 빈 목록
+    assert result["kstartup"] == []  # 정상 응답(빈 목록)은 그대로
+    assert result["msit"] == []
