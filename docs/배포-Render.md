@@ -36,6 +36,8 @@
 
 ## 2. 프론트(Vercel)와 연결
 
+프론트 배포 자체는 `docs/배포-Vercel.md`에 있다. 여기서는 백엔드와 맞물리는 부분만 본다.
+
 Vercel 환경변수에 아래를 넣는다 (`front/src/lib/api.ts`가 읽는 값):
 
 ```
