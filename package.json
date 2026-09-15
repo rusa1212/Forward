@@ -11,5 +11,8 @@
     "build": "npm run build --workspace=front",
     "preview": "npm run preview --workspace=front",
     "format": "npm run format --workspace=front"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }

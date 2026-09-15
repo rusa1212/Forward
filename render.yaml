@@ -1,0 +1,61 @@
+# Render 배포 설정 (Blueprint) — https://render.com/docs/blueprint-spec
+#
+# 쓰는 법: Render 대시보드 > New > Blueprint > 이 저장소 선택.
+# 이 파일대로 서비스가 만들어지고, sync: false 로 표시된 값만 그 자리에서 직접 입력하면 된다.
+# 자세한 절차와 주의사항은 docs/배포-Render.md 참고.
+#
+# DB는 여기에 없다 — 회사 클라우드로 이전할 예정이라 Render에 만들지 않고,
+# DATABASE_URL 하나만 환경변수로 받아서 붙는다.
+
+services:
+  - type: web
+    name: forward-backend
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./back/Dockerfile
+    dockerContext: ./back
+    # DB를 건드리지 않는 엔드포인트라 DB가 잠깐 끊겨도 헬스체크는 통과한다.
+    # (DB까지 확인하려면 /api/v1/health/db 를 직접 호출)
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: ENV
+        value: prod
+
+      # 컨테이너 시간대. scheduler.py의 COLLECT_CRON_HOURS는 "서버 로컬 시간" 기준이라
+      # 이걸 안 주면 UTC가 되어 06시/18시 설정이 한국 시간 15시/03시에 실행된다.
+      - key: TZ
+        value: Asia/Seoul
+
+      - key: COLLECT_CRON_HOURS
+        value: "6,18"
+      - key: COLLECT_CRON_MINUTE
+        value: "0"
+      - key: JWT_EXPIRE_HOURS
+        value: "24"
+
+      # 매 배포마다가 아니라 최초 1회 Render가 무작위 값을 만들어 고정해준다.
+      # (직접 값을 넣지 말 것 — 저장소에 비밀값이 남는다)
+      - key: JWT_SECRET
+        generateValue: true
+
+      # 외부 cron이 POST /api/v1/collect/cron 을 호출할 때 쓰는 고정 토큰.
+      # Render가 무작위로 만들어주므로, 배포 후 대시보드에서 값을 복사해 cron 서비스에 넣는다.
+      # (이 값이 비어 있으면 해당 엔드포인트는 404로 닫힌 상태)
+      - key: CRON_TOKEN
+        generateValue: true
+
+      # sync: false = 저장소에 값을 두지 않고 Render 대시보드에서 입력한다.
+      # DATABASE_URL: mysql+pymysql://user:pw@host:3306/forward?charset=utf8mb4
+      #   비워두면 앱이 뜨지 않는다 (app/db/session.py가 import 시점에 엔진을 만든다).
+      - key: DATABASE_URL
+        sync: false
+      - key: DATA_GO_KR_API_KEY
+        sync: false
+      # 배포된 프론트 주소. 쉼표로 여러 개 가능 (예: https://forward.vercel.app,http://localhost:8443)
+      - key: FRONTEND_ORIGIN
+        sync: false
+
+      # SMTP_* 는 일부러 뺐다 — 비워두면 알림 저장까지만 하고 메일은 안 나가는 게 정상 동작이고
+      # (app/core/config.py), 메일 서비스가 정해지면 대시보드에서 값만 추가하면 된다.

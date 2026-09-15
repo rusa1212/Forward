@@ -8,8 +8,14 @@ class Settings(BaseSettings):
     APP_NAME: str = "forward-be"
     ENV: str = "local"  # local / dev / prod
 
-    # FE 개발 서버 주소 (CORS 허용)
+    # FE 주소 (CORS 허용). 쉼표로 여러 개 지정할 수 있다 —
+    # 배포 후에는 "운영 주소 + 로컬 개발 주소"를 같이 열어두는 경우가 많다.
     FRONTEND_ORIGIN: str = "http://localhost:3000"
+
+    # 주소가 배포마다 바뀌는 오리진을 정규식으로 허용한다. Vercel 프리뷰 배포가 그런 경우로,
+    # 운영 주소 하나만 열어두면 PR 미리보기에서 API 호출이 전부 CORS로 막힌다.
+    # 예: https://forward-.*-myteam\.vercel\.app  (비워두면 정규식 허용 없음)
+    FRONTEND_ORIGIN_REGEX: str = ""
 
     # 공공데이터포털 발급 API 키 (4개 서비스 공용)
     DATA_GO_KR_API_KEY: str = ""
@@ -27,6 +33,12 @@ class Settings(BaseSettings):
     COLLECT_CRON_HOURS: str = "6,18"
     COLLECT_CRON_MINUTE: int = 0
 
+    # 외부 cron(cron-job.org 등)이 POST /api/v1/collect/cron 을 호출할 때 쓰는 고정 토큰.
+    # 관리자 JWT는 24시간이면 만료돼 cron에 넣어둘 수 없어서 별도로 둔다.
+    # 비워두면(기본) 그 엔드포인트가 404로 완전히 닫힌다 — 토큰을 안 정한 채 배포해도
+    # 아무나 수집을 트리거할 수 있는 구멍이 생기지 않도록.
+    CRON_TOKEN: str = ""
+
     # 로그인 토큰(JWT) 서명용. 실서비스 배포 전 반드시 각자 .env에서 무작위 값으로 교체할 것.
     JWT_SECRET: str = "change-me-in-env"
     JWT_EXPIRE_HOURS: int = 24
@@ -40,6 +52,11 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM_EMAIL: str = ""
     SMTP_USE_TLS: bool = True
+
+    @property
+    def frontend_origins(self) -> list[str]:
+        """FRONTEND_ORIGIN(쉼표 구분)을 CORS 미들웨어가 받는 리스트로 변환."""
+        return [origin.strip() for origin in self.FRONTEND_ORIGIN.split(",") if origin.strip()]
 
 
 settings = Settings()
