@@ -1,0 +1,51 @@
+# 회사 서버(공인 IP)에 MySQL만 띄우는 용도. 백엔드는 Render에 있고 여기 DB로 붙는다.
+#
+# 로컬 개발용은 docker-compose.yml 쪽이다. 이 파일을 따로 두는 이유:
+# 개발용은 계정이 forward/forward로 하드코딩돼 있고 3306을 전체 개방하는데,
+# 그대로 인터넷에 노출하면 스캐너에 바로 털린다.
+#
+# 사용법 (이 파일이 있는 back/ 폴더에서):
+#   1. 같은 폴더에 .env.prod 파일을 만들고 아래 두 값을 채운다 (git에 안 올라간다)
+#        MYSQL_ROOT_PASSWORD=<길고 무작위>
+#        MYSQL_PASSWORD=<길고 무작위 — 앱이 쓸 forward 계정 비밀번호>
+#   2. docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+#   3. 방화벽에서 3306을 Render 아웃바운드 IP로만 열어준다 (아래 "접근 제한" 참고)
+#
+# ⚠️ 접근 제한 — 이걸 안 하면 위 비밀번호만이 유일한 방어선이 된다.
+# Render 대시보드 > 서비스 > Connect 에 그 서비스의 아웃바운드 IP 목록이 있다.
+# 회사 서버 방화벽/보안그룹에서 3306을 그 IP들에만 열고 나머지는 전부 막을 것.
+# (이 IP는 Render 고객들이 공유하는 주소라 "Render에서 오는 트래픽"까지만 좁혀주는 것이지
+#  우리 서비스만 통과시키는 게 아니다 — 그래서 비밀번호도 여전히 길고 무작위여야 한다.)
+
+services:
+  db:
+    image: mysql:8.4
+    container_name: forward-mysql
+    restart: always
+    command:
+      # 한글 깨짐 방지: models.py의 테이블 설정(utf8mb4)과 반드시 같아야 한다.
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # 로컬 개발과 달리 인터넷을 지나는 연결이라, 평문으로 오가면 계정과 데이터가 그대로 노출된다.
+      # TLS를 강제한다. MySQL 8.4는 첫 실행 때 self-signed 인증서를 자동 생성한다.
+      # (앱 쪽 접속 설정은 docs/배포-Render.md "DB 연결" 참고)
+      - --require-secure-transport=ON
+    environment:
+      # 하드코딩하지 않는다 — .env.prod 에서 읽어온다. 값이 없으면 컨테이너가 뜨지 않는다.
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD를 .env.prod에 설정하세요}
+      MYSQL_DATABASE: forward
+      MYSQL_USER: forward
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD를 .env.prod에 설정하세요}
+    ports:
+      - "3306:3306"
+    volumes:
+      - forward-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+volumes:
+  forward-mysql-data:

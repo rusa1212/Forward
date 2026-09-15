@@ -1,21 +1,63 @@
 # 백엔드 배포 — Render (무료 플랜)
 
-프론트는 Vercel, 백엔드는 Render에 올린다. **DB는 Render에 만들지 않는다** — 회사 클라우드로
-이전할 예정이라 `DATABASE_URL` 환경변수 하나로 외부 DB에 붙는 구조로 두었다.
+프론트는 Vercel, 백엔드는 Render에 올린다. **DB는 Render에 만들지 않는다** — 회사 서버에
+도커로 띄우고, Render의 백엔드가 `DATABASE_URL` 하나로 거기에 붙는다.
 
-관련 파일: `render.yaml`(배포 설정), `back/Dockerfile`(이미지), `back/.dockerignore`
+관련 파일: `render.yaml`(배포 설정), `back/Dockerfile`(이미지), `back/.dockerignore`,
+`back/docker-compose.prod.yml`(회사 서버의 MySQL)
 
 ## 0. 먼저 알아야 할 것
 
-**DB 없이는 서버가 뜨지 않는다.** `back/app/db/session.py`가 import 시점에 `create_engine()`을
-호출하기 때문에, `DATABASE_URL`이 비어 있으면 FastAPI가 시작되기도 전에 죽는다.
-회사 클라우드 DB가 준비되기 전까지는 임시 MySQL 주소라도 넣어둬야 한다.
-(DB가 바뀌면 Render 대시보드에서 `DATABASE_URL` 값만 교체 → 재배포. 코드 수정 없음)
+**DB가 먼저다.** `back/app/db/session.py`가 import 시점에 `create_engine()`을 호출하기 때문에,
+`DATABASE_URL`이 비어 있으면 FastAPI가 시작되기도 전에 죽는다. 회사 서버에 MySQL을 먼저
+띄우고(아래 1번) 그 주소를 확보한 다음 Render에 배포한다.
 
 **무료 플랜은 15분 동안 요청이 없으면 서버가 내려간다.** 다음 요청이 오면 다시 뜨는데 약 1분
 걸린다. 시연 직전에는 Starter($7/월)로 올리면 이 대기가 사라진다.
 
-## 1. 배포하기
+## 1. 회사 서버에 MySQL 띄우기
+
+`back/docker-compose.prod.yml`을 쓴다. 로컬 개발용(`docker-compose.yml`)과 따로 둔 이유는,
+개발용이 계정을 `forward/forward`로 하드코딩하고 3306을 전체 개방하기 때문이다 —
+인터넷에 열린 3306은 자동 스캐너가 상시 두드리는 포트라 그대로 노출하면 바로 뚫린다.
+
+```bash
+# 회사 서버의 back/ 폴더에서
+cat > .env.prod <<'ENV'
+MYSQL_ROOT_PASSWORD=<길고 무작위>
+MYSQL_PASSWORD=<길고 무작위 — 앱이 쓸 forward 계정 비밀번호>
+ENV
+
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+```
+
+두 값은 반드시 채워야 한다 (비어 있으면 컨테이너가 뜨지 않도록 해뒀다).
+
+**방화벽에서 3306을 Render 아웃바운드 IP로만 열 것.** Render 대시보드 > 서비스 > Connect 에
+그 IP 목록이 있다. 이 IP는 Render 고객들이 공유하는 주소라 "Render에서 오는 트래픽"까지만
+좁혀주는 것이지 우리 서비스만 통과시키는 게 아니다 — 그래서 비밀번호도 여전히 중요하다.
+
+### DB 연결은 자동으로 암호화된다
+
+prod compose는 `--require-secure-transport=ON`으로 평문 접속을 막는다. 인터넷을 지나는
+연결이라 평문이면 계정과 데이터가 그대로 노출되기 때문이다.
+
+앱 쪽에는 **아무 설정도 필요 없다.** PyMySQL은 서버가 TLS를 지원하면 알아서 TLS로 붙는다
+(실제로 붙여서 `TLS_AES_256_GCM_SHA384`로 암호화되는 것을 확인했다). `DATABASE_URL`은
+아래 평범한 형태 그대로 쓰면 된다.
+
+```
+mysql+pymysql://forward:<비밀번호>@<공인IP 또는 도메인>:3306/forward?charset=utf8mb4
+```
+
+⚠️ URL에 `ssl_disabled=false`를 붙이지 말 것. 문자열 `'false'`가 참으로 해석돼 TLS가 꺼지고,
+서버가 평문을 거부하므로 접속 자체가 실패한다.
+
+참고: 이 TLS는 암호화만 하고 서버 인증서를 검증하지는 않는다(MySQL이 자동 생성하는
+self-signed 인증서라 호스트명이 맞지 않는다). 검증까지 하려면 실제 도메인으로 발급받은
+인증서를 서버에 넣고 URL에 `ssl_ca=<CA 파일 경로>`를 추가해야 한다.
+
+## 2. 배포하기
 
 1. Render 대시보드 > **New > Blueprint** > 이 저장소 선택
 2. `render.yaml`을 읽어 `forward-backend` 서비스가 잡힌다. 아래 값만 직접 입력:
@@ -34,7 +76,7 @@
 마이그레이션(`alembic upgrade head`)은 컨테이너가 뜰 때마다 자동 실행된다
 (`back/Dockerfile`의 `CMD`). Render의 pre-deploy 명령이 유료 전용이라 여기에 걸어둔 것.
 
-## 2. 프론트(Vercel)와 연결
+## 3. 프론트(Vercel)와 연결
 
 프론트 배포 자체는 `docs/배포-Vercel.md`에 있다. 여기서는 백엔드와 맞물리는 부분만 본다.
 
@@ -54,13 +96,13 @@ Vercel은 PR마다 프리뷰 주소가 달라서 운영 주소만 열어두면 �
 FRONTEND_ORIGIN_REGEX=https://forward-.*-<팀슬러그>\.vercel\.app
 ```
 
-## 3. 시간대 주의
+## 4. 시간대 주의
 
 `COLLECT_CRON_HOURS`는 **서버 로컬 시간** 기준이다. Render 기본값은 UTC라 그대로 두면
 `6,18` 설정이 한국 시간 15시·03시에 실행된다. `render.yaml`에 `TZ=Asia/Seoul`을 넣어
 한국 시간으로 맞춰두었으니 이 값을 지우지 말 것.
 
-## 4. 정기 수집 — 외부 cron 연결
+## 5. 정기 수집 — 외부 cron 연결
 
 무료 플랜에서는 서버가 잠들어 있는 동안 APScheduler가 돌지 않는다. 그래서 외부 cron이
 전용 엔드포인트를 때려 수집을 돌린다.
@@ -101,7 +143,7 @@ cron이 매번 타임아웃으로 실패 처리한다). **결과는 응답이 �
 - 앞선 수집이 아직 돌고 있으면 `{"status":"already_running"}`을 주고 겹쳐 돌리지 않는다.
 - 기존 관리자용 `POST /api/v1/collect`는 그대로 남아 있다 (수동 확인용, 관리자 JWT 필요).
 
-## 5. 로컬에서 배포 이미지 그대로 돌려보기
+## 6. 로컬에서 배포 이미지 그대로 돌려보기
 
 ```bash
 cd back
@@ -113,12 +155,16 @@ docker run --rm -p 8000:8000 \
   forward-backend
 ```
 
-## 6. 회사 클라우드로 옮길 때
+## 7. 회사 클라우드로 옮길 때
 
 Render를 Docker로 구성한 이유가 이것이다 — `back/Dockerfile`이 매 배포마다 실제로 빌드되고
 있으므로, 같은 이미지를 회사 클라우드(ECS/쿠버네티스 등)에 그대로 올리면 된다.
 
-옮기는 게 좋은 시점은 **DB가 회사 클라우드로 들어가는 때**다. 사내 DB는 보통 IP 허용목록이나
-VPC 안에 있는데, Render의 기본 아웃바운드 IP는 Render 고객들이 공유하는 주소라 허용받기
-어렵다(전용 고정 IP는 별도 유료 애드온). 백엔드를 DB와 같은 클라우드에 두면 내부 통신이라
-이 문제 자체가 없어진다.
+옮기면 좋아지는 점은 **DB 연결이 내부 통신이 된다**는 것이다. 지금 구조는 DB가 회사 서버에
+있고 백엔드는 Render에 있어서, 둘 사이 트래픽이 인터넷을 지난다. 그래서 3306을 밖으로
+열어야 하고(방화벽으로 Render IP만 허용), 그 IP도 Render 고객들이 공유하는 주소라
+"Render에서 오는 트래픽"까지만 좁혀진다.
+
+백엔드를 DB와 같은 서버·같은 네트워크에 두면 3306을 아예 밖으로 열 필요가 없어진다.
+`back/docker-compose.prod.yml`에서 `ports` 항목을 지우고 백엔드 컨테이너를 같은 compose에
+합치면 된다 — 그러면 DB는 내부 네트워크에서만 보인다.
