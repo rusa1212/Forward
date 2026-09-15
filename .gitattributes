@@ -128,3 +128,13 @@
 *.stl                filter=lfs diff=lfs merge=lfs -text
 *.nc                 filter=lfs diff=lfs merge=lfs -text
 *.mat                filter=lfs diff=lfs merge=lfs -text
+
+# ---------------------------------------------------------------------------
+# 줄바꿈 (Line endings)
+# 리눅스 컨테이너 안에서 실행되는 파일들은 반드시 LF여야 한다.
+# Windows에서 클론할 때 CRLF로 바뀌면 컨테이너가 셔뱅을 못 읽고
+# "/bin/sh^M: bad interpreter" 로 죽는다.
+# ---------------------------------------------------------------------------
+*.sh                 text eol=lf
+Dockerfile           text eol=lf
+.dockerignore        text eol=lf

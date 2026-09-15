@@ -26,6 +26,12 @@ scheduler = AsyncIOScheduler()
 
 
 def start_scheduler() -> None:
+    # DB가 아직 연결되지 않은 상태로도 서버는 뜬다(app/db/session.py). 그때 수집을 돌리면
+    # 공공데이터포털 API만 실컷 호출하고 저장 단계에서 매번 실패하므로 아예 걸지 않는다.
+    if not settings.DATABASE_URL:
+        logger.warning("DATABASE_URL이 비어 있어 자동 수집을 시작하지 않습니다.")
+        return
+
     # trigger 없이 add_job하면 APScheduler가 "지금 바로 1회" 실행으로 예약한다.
     # 서버를 막 켰을 때 다음 정기 수집(06시/18시) 전까지 공고가 비어 보이는 문제 방지용.
     # pytest 하에서는 TestClient(app)이 매 테스트마다 lifespan을 실행하므로, 이 job이

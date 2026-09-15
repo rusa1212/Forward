@@ -20,10 +20,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . ./
 
-# Render는 리슨할 포트를 $PORT로 넣어준다 (로컬에서 docker run 할 때는 8000).
-# 마이그레이션을 여기서 돌리는 이유: Render의 pre-deploy 명령은 유료 플랜 전용이라
-# 무료 플랜에선 컨테이너 시작 시점이 alembic을 걸 수 있는 유일한 지점이다.
-#
-# exec를 붙이는 이유: 이게 없으면 uvicorn이 sh의 자식 프로세스로 남아 Render가 재배포/중지 때
-# 보내는 SIGTERM을 받지 못한다 → lifespan의 stop_scheduler()가 실행되지 않고 강제 종료된다.
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# 마이그레이션 실행과 서버 기동은 docker-entrypoint.sh 가 맡는다
+# (DATABASE_URL이 비어 있으면 마이그레이션을 건너뛰고 DB 없이 뜬다 — 자세한 설명은 그 파일).
+# COPY로 들어온 파일은 Windows에서 실행 비트가 없을 수 있어 여기서 붙여준다.
+RUN chmod +x /app/docker-entrypoint.sh
+CMD ["/app/docker-entrypoint.sh"]
