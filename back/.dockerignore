@@ -1,0 +1,19 @@
+# 이미지에 들어가면 안 되거나(비밀값) 굳이 필요 없는 것들.
+# 특히 .env — 로컬 비밀값이 이미지에 구워지면 안 된다. 운영 값은 Render 환경변수로 주입한다.
+.env
+.env.*
+!.env.example
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 로컬 개발 전용 (운영 이미지에서는 안 씀)
+tests/
+requirements-dev.txt
+docker/
+docker-compose.yml
+dev-seed.sql
+postman/
+.dev-mail/
