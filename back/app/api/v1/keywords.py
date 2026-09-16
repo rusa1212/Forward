@@ -6,7 +6,7 @@
 """
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from app.api.v1.auth import get_current_user
 from app.core.errors import AppError
 from app.db.models import Announcement, Keyword, User
 from app.db.session import get_db
+from app.services.notifier import notify_new_keyword_matches_in_background
 
 router = APIRouter(prefix="/keywords", tags=["keywords"])
 
@@ -69,6 +70,7 @@ class KeywordCreateRequest(BaseModel):
 @router.post("")
 def create_keyword(
     body: KeywordCreateRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -86,6 +88,11 @@ def create_keyword(
     db.add(row)
     db.commit()
     db.refresh(row)
+
+    # 등록 직후 매칭 공고를 알림으로 쌓고 곧바로 메일까지 보낸다(app/services/notifier.py).
+    # 응답 후에 돌리는 이유: 공고 43,000건 전체 스캔 + SMTP 왕복이라 몇 초가 걸리는데,
+    # 그걸 등록 버튼 응답에 얹으면 화면이 그만큼 멈춰 보인다. 실패해도 등록은 유지된다.
+    background_tasks.add_task(notify_new_keyword_matches_in_background, row.id)
 
     return {"success": True, "data": _serialize(row, _match_count(db, row.keyword))}
 

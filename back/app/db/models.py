@@ -125,9 +125,13 @@ class Keyword(Base):
     )
     keyword: Mapped[str] = mapped_column(String(50), nullable=False)
     # 알림 설정 (docs/fe/alert-settings-API-제안.md 3절) — 키워드 수명과 같이 가는 값이라
-    # 별도 테이블 대신 컬럼으로 둔다. 기본값은 화면 기본값(대시보드 on / 이메일 off)과 동일.
+    # 별도 테이블 대신 컬럼으로 둔다.
+    # email_alert 기본값이 on인 이유: 키워드를 등록하면 매칭 공고를 곧바로 메일로 받는 것이
+    # 이 서비스의 기본 동작이다(POST /keywords가 등록 직후 발송까지 한다). 기본이 off면
+    # 사용자가 토글을 따로 켜기 전까지 메일이 한 통도 안 나가서 "등록했는데 아무 일도
+    # 안 일어난다"가 된다. 원치 않으면 마이페이지에서 키워드별로 끄면 된다.
     dashboard_alert: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("1"))
-    email_alert: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("0"))
+    email_alert: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("1"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
     )

@@ -85,7 +85,9 @@ def test_keyword_create_includes_alert_defaults(client, make_user):
     assert res.status_code == 200, res.text
     data = res.json()["data"]
     assert data["dashboardAlert"] is True
-    assert data["emailAlert"] is False
+    # 이메일 알림도 기본 on — 키워드를 등록하면 매칭 공고를 바로 메일로 받는 것이 기본 동작이다
+    # (POST /keywords가 등록 직후 발송까지 한다). 원치 않으면 키워드별로 끄면 된다.
+    assert data["emailAlert"] is True
 
 
 def test_patch_keyword_alerts(client, make_user):

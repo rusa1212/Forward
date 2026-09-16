@@ -32,8 +32,8 @@ def _make_announcement(db, external_id="ext-1", title="AI 기반 시스템 개�
 
 
 def _add_keyword(db, user_id, keyword="AI", email_alert=True) -> str:
-    # email_alert 기본값은 True — 이 파일의 이메일 발송 테스트들이 기대하는 대로
-    # (실제 컬럼 기본값은 False, 옵트인이다. docs/fe/alert-settings-API-제안.md)
+    # 컬럼 기본값도 True다 — 키워드를 등록하면 매칭 공고를 바로 메일로 받는 게 기본 동작이라
+    # (POST /keywords가 등록 직후 발송까지 한다). 끄는 경우를 보려면 email_alert=False로 넘긴다.
     kw = Keyword(id=str(uuid.uuid4()), user_id=user_id, keyword=keyword, email_alert=email_alert)
     db.add(kw)
     db.commit()
@@ -431,3 +431,139 @@ def test_send_email_implicit_ssl_on_465(monkeypatch):
     assert inst.port == 465
     assert inst.starttls_called is False
     assert inst.login_args == ("user@example.com", "pw")
+
+
+# ---- 키워드 등록 즉시 알림 + 발송 (notify_new_keyword_matches) ----
+
+def test_new_keyword_emails_only_open_announcements(db, make_user, monkeypatch):
+    """등록 즉시 나가는 메일에는 아직 마감되지 않은 공고만 담는다.
+
+    매칭의 상당수가 이미 지나간 공고라 전부 보내면 지금 지원할 수 있는 공고가 묻힌다.
+    마감된 공고도 알림(notification_logs)으로는 쌓여서 화면에서는 볼 수 있어야 한다."""
+    user = make_user(email="new-kw@test.com")
+    _make_announcement(db, external_id="open-1", title="AI 기반 시스템 개발", days_to_end=10)
+    _make_announcement(db, external_id="closed-1", title="AI 창업 지원사업", days_to_end=-5)
+
+    sent_messages = []
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(
+        notifier, "_send_email", lambda to, subject, body: sent_messages.append((to, subject, body))
+    )
+
+    keyword_id = _add_keyword(db, user["userId"], "AI")
+    sent = notifier.notify_new_keyword_matches(db, db.get(Keyword, keyword_id))
+
+    assert sent == 1
+    assert len(sent_messages) == 1  # 여러 건이어도 메일은 한 통으로 묶인다
+    to, subject, body = sent_messages[0]
+    assert to == "new-kw@test.com"
+    assert "AI" in subject
+    assert "AI 기반 시스템 개발" in body
+    assert "AI 창업 지원사업" not in body  # 마감된 공고는 메일에서 빠진다
+
+    rows = db.query(NotificationLog).filter(NotificationLog.user_id == user["userId"]).all()
+    assert len(rows) == 2  # 마감 공고도 알림으로는 쌓인다
+    assert sum(row.emailed_at is not None for row in rows) == 1
+
+
+def test_new_keyword_does_not_email_when_email_alert_off(db, make_user, monkeypatch):
+    """키워드의 이메일 토글이 꺼져 있으면 알림만 쌓고 메일은 보내지 않는다."""
+    user = make_user()
+    _make_announcement(db, title="AI 기반 시스템 개발")
+
+    sent_messages = []
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(notifier, "_send_email", lambda *args: sent_messages.append(args))
+
+    keyword_id = _add_keyword(db, user["userId"], "AI", email_alert=False)
+    sent = notifier.notify_new_keyword_matches(db, db.get(Keyword, keyword_id))
+
+    assert sent == 0
+    assert sent_messages == []
+    assert db.query(NotificationLog).filter(NotificationLog.user_id == user["userId"]).count() == 1
+
+
+def test_create_keyword_api_sends_email_right_after_response(client, db, make_user, monkeypatch):
+    """POST /keywords 가 응답 후 BackgroundTasks로 알림 생성 + 발송까지 이어간다."""
+    user = make_user(email="api-kw@test.com")
+    _make_announcement(db, title="AI 기반 시스템 개발")
+
+    sent_messages = []
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(
+        notifier, "_send_email", lambda to, subject, body: sent_messages.append((to, subject, body))
+    )
+
+    res = client.post("/api/v1/keywords", json={"keyword": "AI"}, headers=user["headers"])
+    assert res.status_code == 200
+    assert res.json()["data"]["emailAlert"] is True  # 새 키워드는 이메일 알림이 기본 on
+
+    assert len(sent_messages) == 1
+    assert sent_messages[0][0] == "api-kw@test.com"
+
+    # 백그라운드 작업은 별도 세션에서 커밋한다. MySQL 기본 격리수준(REPEATABLE READ)에서는
+    # 이 세션이 이미 연 트랜잭션의 스냅샷에 그 커밋이 안 보이므로, rollback으로 끊고 새로 읽는다.
+    db.rollback()
+    rows = db.query(NotificationLog).filter(NotificationLog.user_id == user["userId"]).all()
+    assert len(rows) == 1
+    assert rows[0].emailed_at is not None
+
+
+def test_create_keyword_survives_email_failure(client, db, make_user, monkeypatch):
+    """메일 서버가 죽어 있어도 키워드 등록 자체는 성공해야 한다 (등록은 이미 커밋됐다)."""
+    user = make_user()
+    _make_announcement(db, title="AI 기반 시스템 개발")
+
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
+
+    def boom(to, subject, body):
+        raise RuntimeError("smtp down")
+
+    monkeypatch.setattr(notifier, "_send_email", boom)
+
+    res = client.post("/api/v1/keywords", json={"keyword": "AI"}, headers=user["headers"])
+    assert res.status_code == 200
+
+    listed = client.get("/api/v1/keywords", headers=user["headers"])
+    assert [row["keyword"] for row in listed.json()["data"]] == ["AI"]
+
+    # 백그라운드 작업은 별도 세션에서 커밋한다. MySQL 기본 격리수준(REPEATABLE READ)에서는
+    # 이 세션이 이미 연 트랜잭션의 스냅샷에 그 커밋이 안 보이므로, rollback으로 끊고 새로 읽는다.
+    db.rollback()
+    rows = db.query(NotificationLog).filter(NotificationLog.user_id == user["userId"]).all()
+    assert len(rows) == 1
+    assert rows[0].emailed_at is None  # 발송 실패분은 pending으로 남아 다음 기회에 재시도된다
+
+
+def test_withheld_closed_notifications_are_not_swept_by_other_send_paths(db, make_user, monkeypatch):
+    """등록 즉시 발송이 뺀 "마감된 공고" 알림이 다른 발송 경로로 다시 나가면 안 된다.
+
+    실제로 그런 일이 있었다 — 등록 직후 메일(마감 안 된 것만)이 나간 30초 뒤에
+    "지금 이메일로 받기"를 누르자, 일부러 뺐던 마감 공고 271건이 두 번째 메일로 그대로
+    나갔다. 세 발송 경로가 같은 기준(_not_closed_yet)을 써야 한다."""
+    user = make_user(email="sweep@test.com")
+    _make_announcement(db, external_id="open-1", title="AI 기반 시스템 개발", days_to_end=10)
+    _make_announcement(db, external_id="closed-1", title="AI 창업 지원사업", days_to_end=-5)
+
+    sent_messages = []
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(
+        notifier, "_send_email", lambda to, subject, body: sent_messages.append((to, subject, body))
+    )
+
+    keyword_id = _add_keyword(db, user["userId"], "AI")
+    assert notifier.notify_new_keyword_matches(db, db.get(Keyword, keyword_id)) == 1
+
+    user_row = db.get(User, user["userId"])
+    # 두 경로 모두 마감 공고를 다시 집어가면 안 된다
+    assert send_notifications_to_user_now(db, user_row) == 0
+    assert send_pending_notification_emails(db) == 0
+    assert len(sent_messages) == 1  # 등록 직후 한 통이 전부
+
+    closed_rows = [
+        row
+        for row in db.query(NotificationLog).filter(NotificationLog.user_id == user["userId"]).all()
+        if "창업" in row.title
+    ]
+    assert len(closed_rows) == 1
+    assert closed_rows[0].emailed_at is None  # 미발송으로 남되, 메일로는 나가지 않는다

@@ -6,6 +6,7 @@ import httpx
 from app.core.config import settings
 from app.services.collector import (
     BID_WINDOW_DAYS,
+    MSIT_PAGE_SIZE,
     RECENT_CLOSED_DAYS,
     BidApiError,
     _bid_response_body,
@@ -14,6 +15,7 @@ from app.services.collector import (
     collect_all,
     fetch_bid_public_info,
     fetch_kstartup,
+    fetch_msit,
 )
 
 
@@ -276,3 +278,92 @@ def test_collect_all_isolates_source_failures(monkeypatch):
     assert result["narajangteo"] == []  # 실패한 소스는 빈 목록
     assert result["kstartup"] == []  # 정상 응답(빈 목록)은 그대로
     assert result["msit"] == []
+
+
+def _msit_page_json(items: list[dict[str, str]]) -> dict:
+    return {
+        "response": [
+            {"header": {"resultCode": "00", "resultMsg": "NORMAL_CODE"}},
+            {
+                "body": {
+                    "pageNo": "1",
+                    "totalCount": 4253,
+                    "numOfRows": MSIT_PAGE_SIZE,
+                    "items": [
+                        {
+                            "item": {
+                                "subject": item["subject"],
+                                "pressDt": item["pressDt"],
+                                "deptName": "과기정통부",
+                                "viewUrl": f"https://www.msit.go.kr/bbs/view.do?nttSeqNo={item['id']}",
+                            }
+                        }
+                        for item in items
+                    ],
+                }
+            },
+        ]
+    }
+
+
+def test_fetch_msit_pages_through_fixed_page_size_and_stops_on_old_page(monkeypatch):
+    """이 API는 numOfRows 요청값을 무시하고 언제나 MSIT_PAGE_SIZE(10)건씩만 돌려준다.
+    그래서 "받은 건수 < 요청 건수 = 마지막 페이지" 종료 조건이 1페이지에서 참이 되지 않도록
+    기본 요청 건수가 실제 페이지 크기와 같아야 한다 — 어긋나면 10건만 걷히고 끝난다.
+    그리고 보도일이 RECENT_CLOSED_DAYS보다 오래된 페이지를 만나면 거기서 멈춘다."""
+    monkeypatch.setattr(settings, "DATA_GO_KR_API_KEY", "key")
+    today = date.today()
+    recent = (today - timedelta(days=RECENT_CLOSED_DAYS - 1)).strftime("%Y-%m-%d")
+    old = (today - timedelta(days=RECENT_CLOSED_DAYS + 30)).strftime("%Y-%m-%d")
+
+    def page(prefix: str, press_dt: str) -> list[dict[str, str]]:
+        return [
+            {"id": f"{prefix}{i}", "subject": f"{prefix}-{i}", "pressDt": press_dt}
+            for i in range(MSIT_PAGE_SIZE)
+        ]
+
+    pages = {1: page("a", recent), 2: page("b", recent), 3: page("c", old), 4: page("d", recent)}
+    requested_pages: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        page_no = int(request.url.params["pageNo"])
+        requested_pages.append(page_no)
+        # 실제 API와 똑같이, 요청한 numOfRows와 무관하게 MSIT_PAGE_SIZE건만 돌려준다.
+        return httpx.Response(200, json=_msit_page_json(pages[page_no]))
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await fetch_msit(client)
+
+    result = asyncio.run(run())
+
+    assert len(result) == 2 * MSIT_PAGE_SIZE  # 1페이지에서 멈추지 않았다
+    assert {it["external_id"] for it in result} == {f"a{i}" for i in range(MSIT_PAGE_SIZE)} | {
+        f"b{i}" for i in range(MSIT_PAGE_SIZE)
+    }
+    assert requested_pages == [1, 2, 3]  # 오래된 page3에서 중단, page4는 호출하지 않는다
+
+
+def test_fetch_msit_has_no_reception_dates(monkeypatch):
+    """이 API 응답에는 접수 시작/마감 필드가 없다. 그래서 수집 결과도 날짜가 비어 있고
+    (파서 누락이 아님), 저장되면 "기한미정"으로 분류된다."""
+    monkeypatch.setattr(settings, "DATA_GO_KR_API_KEY", "key")
+    today = date.today().strftime("%Y-%m-%d")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if int(request.url.params["pageNo"]) > 1:
+            return httpx.Response(200, json=_msit_page_json([]))
+        return httpx.Response(
+            200, json=_msit_page_json([{"id": "1", "subject": "공고", "pressDt": today}])
+        )
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await fetch_msit(client)
+
+    result = asyncio.run(run())
+
+    assert len(result) == 1
+    assert result[0]["start_date"] is None
+    assert result[0]["end_date"] is None
+    assert result[0]["announce_date"] == date.today()
