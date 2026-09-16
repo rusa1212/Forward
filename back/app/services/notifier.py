@@ -37,12 +37,13 @@ from datetime import date, datetime, timedelta
 from email.mime.text import MIMEText
 from typing import NamedTuple
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.models import AlertSetting, Announcement, Keyword, NotificationLog, SavedAnnouncement, User
+from app.db.session import SessionLocal
 
 logger = logging.getLogger("app.notifier")
 
@@ -83,6 +84,28 @@ def _is_deadline_soon(reception_end: date | None, days: int) -> bool:
         return False
     today = date.today()
     return today <= reception_end <= today + timedelta(days=days)
+
+
+def _not_closed_yet():
+    """메일에 담아도 되는 알림인지 — 그 공고가 아직 마감되지 않았는지의 SQL 조건.
+
+    이미 마감된 공고를 메일로 보내봐야 사용자가 할 수 있는 일이 없다. 키워드 하나에
+    매칭이 수백 건이면 그 대부분이 지나간 공고라(2026-09 실측: "축제" 475건 중 271건이
+    마감), 걸러내지 않으면 지금 지원 가능한 공고가 그 안에 묻힌다.
+
+    **모든 발송 경로가 이 조건을 함께 써야 한다.** 한 곳만 거르면 거기서 빠진 알림이
+    emailed_at=NULL(미발송)로 남아, 다음에 다른 경로가 발송할 때 그대로 쓸려나간다
+    (실제로 그렇게 마감 공고 271건이 30초 뒤 두 번째 메일로 다시 나갔다).
+
+    마감일 정보가 없는 공고(기한미정)는 마감됐다고 단정할 수 없으므로 보낸다.
+    알림에 announcement_id가 없는 경우(LEFT JOIN 미스)도 막지 않는다.
+    """
+    today = date.today()
+    return or_(
+        Announcement.id.is_(None),
+        Announcement.reception_end.is_(None),
+        Announcement.reception_end >= today,
+    )
 
 
 def generate_keyword_match_notifications(db: Session) -> int:
@@ -159,8 +182,121 @@ def generate_keyword_match_notifications(db: Session) -> int:
     return result.rowcount
 
 
+def notify_new_keyword_matches(db: Session, keyword: Keyword) -> int:
+    """키워드를 막 등록한 직후, 그 키워드에 매칭되는 공고로 알림을 만들고 곧바로 메일을 보낸다.
+
+    정기 수집(collect_cycle)의 2, 3단계를 방금 만든 키워드 하나에 대해서만 즉시 수행하는 것이다.
+    generate_keyword_match_notifications처럼 전체 키워드를 다시 훑지는 않는다 — 등록 응답을
+    기다리는 사용자를 (전체 키워드 x 공고 43,000건) 스캔으로 붙잡아 둘 이유가 없다.
+
+    메일에는 **아직 마감되지 않은 공고만** 담는다. 매칭의 상당수가 이미 지나간 공고라
+    (2026-09 실측: 키워드 "AI"는 1,684건 중 1,239건이 마감), 전부 보내면 지금 지원할 수 있는
+    공고가 그 안에 묻힌다. 마감된 공고도 알림으로는 쌓이므로 화면에서는 그대로 볼 수 있다.
+
+    발송 주기(daily/weekly)는 따지지 않는다 — 사용자가 방금 키워드를 등록한 직후라
+    "지금 이메일로 받기"(send_notifications_to_user_now)와 같은 성격의 즉시 발송이다.
+
+    반환값: 이번에 이메일로 보낸 알림 개수 (이메일 토글이 꺼져 있거나 SMTP 미설정이면 0).
+    """
+    # 정기 파이프라인과 같은 규칙: 대시보드 알림이 꺼진 키워드는 알림 자체를 만들지 않는다.
+    if not keyword.dashboard_alert:
+        return 0
+
+    setting = _load_alert_settings(db).get(keyword.user_id, _DEFAULT_ALERT_SETTING)
+    matched = db.execute(
+        select(Announcement).where(Announcement.title.ilike(f"%{keyword.keyword}%"))
+    ).scalars().all()
+
+    rows_to_insert: list[dict] = []
+    for ann in matched:
+        rows_to_insert.append(
+            {
+                "id": str(uuid.uuid4()),
+                "user_id": keyword.user_id,
+                "announcement_id": ann.id,
+                "keyword_id": keyword.id,
+                "notify_type": "신규매칭",
+                "title": f"[신규] {ann.title}",
+            }
+        )
+        if _is_deadline_soon(ann.reception_end, setting.deadline_alert_days):
+            rows_to_insert.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "user_id": keyword.user_id,
+                    "announcement_id": ann.id,
+                    "keyword_id": keyword.id,
+                    "notify_type": "마감임박",
+                    "title": f"[마감임박] {ann.title}",
+                }
+            )
+
+    if rows_to_insert:
+        # 같은 공고가 다른 키워드로 이미 알림이 된 경우는 UNIQUE 제약 덕에 조용히 스킵된다.
+        stmt = mysql_insert(NotificationLog).values(rows_to_insert).prefix_with("IGNORE")
+        db.execute(stmt)
+        db.commit()
+
+    if not keyword.email_alert:
+        return 0
+    if not settings.SMTP_HOST:
+        logger.info("SMTP_HOST가 비어있어 이메일 발송을 건너뜁니다 (알림 저장 자체는 정상 동작).")
+        return 0
+
+    pending = db.execute(
+        select(NotificationLog)
+        .join(Announcement, Announcement.id == NotificationLog.announcement_id, isouter=True)
+        .where(
+            NotificationLog.keyword_id == keyword.id,
+            NotificationLog.emailed_at.is_(None),
+            _not_closed_yet(),
+        )
+        .order_by(Announcement.reception_end.asc())
+    ).scalars().all()
+    if not pending:
+        return 0
+
+    user = db.get(User, keyword.user_id)
+    if user is None:
+        return 0
+
+    _send_email(user.email, f"[Forward] 키워드 '{keyword.keyword}' 매칭 공고", _build_email_body(pending))
+    now = datetime.utcnow()
+    for row in pending:
+        row.emailed_at = now
+    db.commit()
+    return len(pending)
+
+
+def notify_new_keyword_matches_in_background(keyword_id: str) -> None:
+    """FastAPI BackgroundTasks용 진입점.
+
+    요청용 세션은 응답과 함께 닫히므로 여기서 자체 세션을 연다. 그리고 여기서 나는 오류가
+    키워드 등록을 실패시키면 안 되므로(등록은 이미 커밋됐고 응답도 나갔다) 전부 잡아서 로그만
+    남긴다 — 메일 서버가 죽어 있다고 키워드가 안 만들어지면 곤란하다.
+    """
+    db = SessionLocal()
+    try:
+        keyword = db.get(Keyword, keyword_id)
+        if keyword is None:  # 등록 직후 삭제된 경우
+            return
+        sent = notify_new_keyword_matches(db, keyword)
+        logger.info("키워드 등록 즉시 알림: keyword=%s emailed=%d", keyword.keyword, sent)
+    except Exception:
+        logger.exception("키워드 등록 직후 알림/발송 실패: keyword_id=%s", keyword_id)
+    finally:
+        db.close()
+
+
+# 메일 한 통에 담을 최대 알림 수. 흔한 키워드는 매칭이 수백 건이라(예: "AI" 1,684건)
+# 전부 나열하면 본문이 수백 줄이 되고, 메일 서버가 크기 제한으로 거부하기도 한다.
+EMAIL_MAX_ITEMS = 100
+
+
 def _build_email_body(rows: list[NotificationLog]) -> str:
-    lines = [f"- {row.title}" for row in rows]
+    lines = [f"- {row.title}" for row in rows[:EMAIL_MAX_ITEMS]]
+    if len(rows) > EMAIL_MAX_ITEMS:
+        lines.append(f"... 외 {len(rows) - EMAIL_MAX_ITEMS}건 (앱에서 전체 확인)")
     return "Forward에 새로운 알림이 있습니다:\n\n" + "\n".join(lines) + "\n\n앱에서 확인해주세요."
 
 
@@ -198,8 +334,12 @@ def send_pending_notification_emails(db: Session) -> int:
         logger.info("SMTP_HOST가 비어있어 이메일 발송을 건너뜁니다 (알림 저장 자체는 정상 동작).")
         return 0
 
+    # 마감된 공고의 알림은 제외한다 — 등록 즉시 발송이 걸러낸 것과 같은 기준이어야
+    # 여기서 다시 쓸려나가지 않는다(_not_closed_yet 참고).
     pending = db.execute(
-        select(NotificationLog).where(NotificationLog.emailed_at.is_(None))
+        select(NotificationLog)
+        .join(Announcement, Announcement.id == NotificationLog.announcement_id, isouter=True)
+        .where(NotificationLog.emailed_at.is_(None), _not_closed_yet())
     ).scalars().all()
     if not pending:
         return 0
@@ -250,7 +390,10 @@ def send_notifications_to_user_now(db: Session, user: User) -> int:
 
     자동 발송(send_pending_notification_emails)과 달리 발송 주기(daily/weekly)나
     키워드/즐겨찾기 이메일 토글을 따지지 않는다 — 사용자가 지금 명시적으로 눌렀으니
-    아직 이메일로 보내지 않은(emailed_at IS NULL) 내 알림을 전부 지금 보낸다.
+    아직 이메일로 보내지 않은(emailed_at IS NULL) 내 알림을 지금 보낸다.
+
+    다만 이미 마감된 공고의 알림은 여기서도 빼는데(_not_closed_yet), 다른 경로가 일부러
+    빼둔 것을 이 버튼이 도로 쓸어 보내면 필터가 무의미해지기 때문이다.
 
     - SMTP_HOST가 비어있으면 EmailNotConfiguredError를 던진다(자동 파이프라인은 조용히
       건너뛰지만, 사용자 액션에서는 이유를 알려줘야 한다).
@@ -263,7 +406,12 @@ def send_notifications_to_user_now(db: Session, user: User) -> int:
 
     pending = db.execute(
         select(NotificationLog)
-        .where(NotificationLog.user_id == user.id, NotificationLog.emailed_at.is_(None))
+        .join(Announcement, Announcement.id == NotificationLog.announcement_id, isouter=True)
+        .where(
+            NotificationLog.user_id == user.id,
+            NotificationLog.emailed_at.is_(None),
+            _not_closed_yet(),
+        )
         .order_by(NotificationLog.created_at.desc())
     ).scalars().all()
     if not pending:
