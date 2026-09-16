@@ -294,13 +294,28 @@ async def fetch_bid_public_info(
     return list(merged.values())
 
 
+# 과기정통부 API는 numOfRows 요청값을 무시하고 언제나 10건씩만 돌려준다
+# (2026-09 실측: 10/20/50/100/1000 무엇을 보내도 응답의 numOfRows=10).
+# 이 값을 실제와 맞춰두지 않으면 아래 "받은 건수 < 요청 건수 = 마지막 페이지" 종료 조건이
+# 1페이지에서 바로 참이 되어, totalCount 4,253건 중 10건만 걷힌다.
+MSIT_PAGE_SIZE = 10
+
+
 async def fetch_msit(
-    client: httpx.AsyncClient, num_of_rows: int = 100, max_pages: int = MAX_PAGES
+    client: httpx.AsyncClient, num_of_rows: int = MSIT_PAGE_SIZE, max_pages: int = MAX_PAGES
 ) -> list[dict]:
     """과학기술정보통신부 사업공고.
 
-    응답이 num_of_rows보다 적어질 때까지(=마지막 페이지) 페이지를 계속 넘겨 전체를 모은다.
+    보도일(pressDt) 최신순으로 내려오고 2013년까지 거슬러 올라가는 전체 아카이브라
+    (2026-09 기준 totalCount 4,253건), K-Startup과 같은 기준으로 최근 RECENT_CLOSED_DAYS일
+    이내에 보도된 공고까지만 담고 그보다 오래된 페이지에 닿으면 멈춘다.
+    10건/페이지 기준 최근 90일은 약 10페이지라 max_pages(30)에는 닿지 않는 게 정상이다.
+
+    ⚠️ 이 API 응답에는 접수 시작/마감 필드가 아예 없다 — deptName, subject, pressDt,
+    viewUrl, managerName, managerTel, files가 전부다. 그래서 여기서 담는 공고는
+    reception_start/end가 비어 "기한미정"으로 분류된다(파서 누락이 아니라 원본에 없는 것).
     """
+    cutoff_date = date.today() - timedelta(days=RECENT_CLOSED_DAYS)
     items = []
     for page_no in range(1, max_pages + 1):
         res = await client.get(
@@ -342,7 +357,15 @@ async def fetch_msit(
 
         if not page_items:
             break
-        items.extend(page_items)
+        # pressDt가 없는 항목은 오래된 건지 판단할 수 없으므로 버리지 않고 함께 담는다.
+        keep_items = [
+            it
+            for it in page_items
+            if it["announce_date"] is None or it["announce_date"] >= cutoff_date
+        ]
+        items.extend(keep_items)
+        if not keep_items:
+            break
         if len(page_items) < num_of_rows:
             break
 
