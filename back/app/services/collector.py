@@ -40,7 +40,7 @@ BID_MAX_PAGES = 300
 
 # R&D Monitor 회의 피드백(docs/feedback.md 1번): 진행 중인 공고뿐 아니라 최근 마감된
 # 공고도 일정 기간 함께 보여달라는 요청 — 마감 후에도 이 기간만큼은 목록에 남겨둔다.
-RECENT_CLOSED_DAYS = 90
+RECENT_CLOSED_DAYS = 30
 
 # 나라장터는 조회 기간(inqryBgnDt~inqryEndDt)이 필수라 "전체 기간"을 조회할 수 없다.
 # "오늘 하루"만 보면 이미 공고돼서 아직 마감 안 된 과거 공고를 놓치므로, 모집 중인 공고를
@@ -309,7 +309,7 @@ async def fetch_msit(
     보도일(pressDt) 최신순으로 내려오고 2013년까지 거슬러 올라가는 전체 아카이브라
     (2026-09 기준 totalCount 4,253건), K-Startup과 같은 기준으로 최근 RECENT_CLOSED_DAYS일
     이내에 보도된 공고까지만 담고 그보다 오래된 페이지에 닿으면 멈춘다.
-    10건/페이지 기준 최근 90일은 약 10페이지라 max_pages(30)에는 닿지 않는 게 정상이다.
+    10건/페이지 기준 최근 30일은 약 3~4페이지라 max_pages(30)에는 닿지 않는 게 정상이다.
 
     ⚠️ 이 API 응답에는 접수 시작/마감 필드가 아예 없다 — deptName, subject, pressDt,
     viewUrl, managerName, managerTel, files가 전부다. 그래서 여기서 담는 공고는

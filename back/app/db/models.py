@@ -190,9 +190,14 @@ class NotificationLog(Base):
         ForeignKey("users.id", name="fk_notification_logs_user_id", ondelete="CASCADE"),
         nullable=False,
     )
+    # ondelete=SET NULL: 보관 기간이 지난 공고를 정리해도(storage.purge_stale_closed_announcements)
+    # 알림 이력 자체는 남긴다. CASCADE면 "내가 이 알림을 받았다"는 사용자 기록이 공고 정리와
+    # 함께 조용히 사라진다. 이 행은 title을 자체 컬럼으로 갖고 있고, 조회/발송 경로가 모두
+    # LEFT JOIN + announcement_id NULL 허용으로 되어 있어(api/v1/notifications.py,
+    # services/notifier.py) 링크가 끊긴 알림도 그대로 표시된다.
     announcement_id: Mapped[str | None] = mapped_column(
         CHAR(36),
-        ForeignKey("announcements.id", name="fk_notification_logs_announcement_id", ondelete="CASCADE"),
+        ForeignKey("announcements.id", name="fk_notification_logs_announcement_id", ondelete="SET NULL"),
     )
     keyword_id: Mapped[str | None] = mapped_column(
         CHAR(36),

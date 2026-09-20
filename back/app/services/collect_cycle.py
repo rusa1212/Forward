@@ -1,4 +1,4 @@
-"""수집 1회분의 전체 과정 — 수집 → 저장 → 키워드 매칭 알림 생성 → 메일 발송.
+"""수집 1회분의 전체 과정 — 수집 → 저장 → 오래된 마감 공고 정리 → 키워드 매칭 알림 생성 → 메일 발송.
 
 호출하는 곳이 둘이다:
   - app/core/scheduler.py   : 서버가 깨어 있을 때 도는 정기 실행(06시·18시)
@@ -12,7 +12,7 @@ import logging
 from app.db.session import SessionLocal
 from app.services.collector import collect_all, today_bid_date_range
 from app.services.notifier import generate_keyword_match_notifications, send_pending_notification_emails
-from app.services.storage import save_announcements
+from app.services.storage import purge_stale_closed_announcements, save_announcements
 
 logger = logging.getLogger("app.collect_cycle")
 
@@ -38,6 +38,9 @@ async def run_collect_cycle() -> dict:
         db = SessionLocal()
         try:
             saved = save_announcements(db, all_items)
+            # 저장 직후에 정리한다 — 알림 생성(아래)이 보기 전에 지워야, 이미 보관 기간이
+            # 지난 공고로 "신규매칭" 알림이 나가는 일이 없다.
+            purged = purge_stale_closed_announcements(db)["deleted"]
             notified = generate_keyword_match_notifications(db)
             emailed = send_pending_notification_emails(db)
         finally:
@@ -48,11 +51,12 @@ async def run_collect_cycle() -> dict:
     summary = {
         "fetched": {source: len(items) for source, items in result.items()},
         "saved": saved,
+        "purged": purged,
         "notified": notified,
         "emailed": emailed,
     }
     logger.info(
-        "collect cycle done: fetched=%s saved=%d notified=%d emailed=%d",
-        summary["fetched"], saved, notified, emailed,
+        "collect cycle done: fetched=%s saved=%d purged=%d notified=%d emailed=%d",
+        summary["fetched"], saved, purged, notified, emailed,
     )
     return summary
