@@ -15,6 +15,11 @@
       "key": "token",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "cronToken",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -305,6 +310,33 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "cron 수집 트리거 (외부 cron 전용)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Cron-Token",
+                "value": "{{cronToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/collect/cron",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "collect",
+                "cron"
+              ]
+            },
+            "description": "외부 cron 서비스 전용 수집 트리거. JWT 대신 X-Cron-Token 헤더로 인증한다 (컬렉션 변수 cronToken = 서버 CRON_TOKEN).\n스케줄러와 똑같이 수집→매칭→알림→메일까지 실행하며, 바로 202를 돌려주고 실제 수집은 백그라운드로 돈다 (결과는 서버 로그에 남음).\n\n성공 202: { success: true, data: { status: \"accepted\" } }\n이전 수집이 아직 실행 중: { success: true, data: { status: \"already_running\" } }\n토큰 누락/불일치: 401 INVALID_CRON_TOKEN\n서버에 CRON_TOKEN 미설정: 404 NOT_FOUND",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -477,6 +509,54 @@
               ]
             },
             "description": "{{keywordId}}를 실제 키워드 id로 바꿔서 사용.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "키워드 알림 설정 변경",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/keywords/{{keywordId}}/alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "keywords",
+                "{{keywordId}}",
+                "alerts"
+              ]
+            },
+            "description": "키워드별 대시보드/이메일 알림 on/off. 바꾸려는 필드만 보내면 된다 (부분 수정, 둘 다 선택).\n\n성공 200: { success: true, data: { id, keyword, createdAt, dashboardAlert, emailAlert, matchCount } }\n내 키워드가 아니거나 없는 id: 404 KEYWORD_NOT_FOUND",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dashboardAlert\": true,\n  \"emailAlert\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -740,6 +820,121 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "알림 이메일 지금 받기",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/me/notification-email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "notification-email"
+              ]
+            },
+            "description": "마이페이지 \"지금 이메일로 받기\" 버튼. 아직 이메일로 안 보낸 내 알림을 즉시 내 이메일로 발송한다 (발송 주기·이메일 토글 설정 무시).\n\n성공 200: { success: true, data: { sent, sentTo, message } }\n보낼 알림 없음 200: { success: true, data: { sent: 0, message: \"새로 보낼 알림이 없습니다.\" } }\n메일 설정 안 됨: 503 EMAIL_NOT_CONFIGURED\n발송 실패: 502 EMAIL_SEND_FAILED",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "알림 설정 조회",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/me/alert-settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "alert-settings"
+              ]
+            },
+            "description": "로그인 필요. 저장한 적 없으면 기본값(daily / 7 / true / false)을 돌려준다.\n\n성공 200: { success: true, data: { emailFrequency, deadlineAlertDays, deadlineDashboardAlert, deadlineEmailAlert } }",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "알림 설정 저장",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/me/alert-settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "alert-settings"
+              ]
+            },
+            "description": "4개 필드 전부 보내야 한다 (전체 교체).\n- emailFrequency: \"daily\" | \"weekly\"\n- deadlineAlertDays: 7 | 3 | 1\n- deadlineDashboardAlert, deadlineEmailAlert: boolean\n\n성공 200: 저장된 설정 (조회와 같은 형태). 값이 허용 범위 밖이면 422.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emailFrequency\": \"daily\",\n  \"deadlineAlertDays\": 7,\n  \"deadlineDashboardAlert\": true,\n  \"deadlineEmailAlert\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -876,6 +1071,40 @@
               ]
             },
             "description": "{success, data:{counts:{matched,newToday,urgent,saved}, matched:[...], saved:[...]}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "월별 매칭 추이",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/trend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard",
+                "trend"
+              ]
+            },
+            "description": "로그인 필요. 내 키워드(제목 부분일치 OR)에 매칭된 공고 수를 수집월(KST) 기준으로 올해·작년 1~12월 집계.\n\n성공 200: { success: true, data: { months: [12개 라벨], series: [ { year: 작년, counts: [12] }, { year: 올해, counts: [12] } ] } }",
             "auth": {
               "type": "bearer",
               "bearer": [
